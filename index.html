@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="An interactive two-lane traffic light queue simulation." />
+    <title>Green Wave Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">Interactive traffic model</p>
+          <h1>Green Wave <span>Lab</span></h1>
+          <p class="lede">See how reaction time and following distance shape the flow of two identical queues.</p>
+        </div>
+        <div class="status-card" aria-live="polite">
+          <div class="signal-mini" id="signalMini"><i></i><i></i></div>
+          <div><span id="phaseLabel">RED PHASE</span><strong id="phaseCountdown">12.0s</strong></div>
+        </div>
+      </header>
+
+      <section class="control-panel" aria-label="Simulation controls">
+        <div class="transport-controls">
+          <button id="playBtn" class="primary-btn" type="button"><span class="play-icon">▶</span><span>Play</span></button>
+          <button id="stopBtn" type="button"><span>■</span><span>Stop</span></button>
+          <button id="restartBtn" type="button"><span>↻</span><span>Restart</span></button>
+        </div>
+        <div class="sliders" id="controls"></div>
+      </section>
+
+      <section class="simulation-card">
+        <div class="sim-toolbar">
+          <div>
+            <span class="live-dot"></span><span id="runStatus">READY</span>
+            <span class="sim-time">SIM TIME <b id="simTime">00:00.0</b></span>
+          </div>
+          <div class="legend"><span><i class="swatch top"></i>Top lane</span><span><i class="swatch bottom"></i>Bottom lane</span></div>
+        </div>
+
+        <div class="road-wrap">
+          <div class="distance-labels" aria-hidden="true"><span>100m</span><span>75m</span><span>50m</span><span>25m</span><span>STOP LINE</span></div>
+          <div class="road" id="road">
+            <div class="lane lane-top" id="laneTop"><div class="lane-name">LANE A</div></div>
+            <div class="lane-divider"></div>
+            <div class="lane lane-bottom" id="laneBottom"><div class="lane-name">LANE B</div></div>
+            <div class="stop-line"></div>
+            <div class="traffic-light" id="trafficLight" aria-label="Traffic light is red">
+              <div class="light red"></div><div class="light green"></div><div class="light-pole"></div>
+            </div>
+            <div class="direction">FLOW <span>←</span></div>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <article><div class="metric-head"><span class="lane-badge top">A</span>TOP LANE</div><strong id="topCrossed">0</strong><span>cars crossed</span><small>Resting gap <b id="topGapMetric">2.5m</b></small></article>
+          <article><div class="metric-head"><span class="lane-badge bottom">B</span>BOTTOM LANE</div><strong id="bottomCrossed">0</strong><span>cars crossed</span><small>Resting gap <b id="bottomGapMetric">5.0m</b></small></article>
+          <article class="comparison"><div class="metric-head">THROUGHPUT</div><strong id="throughput">0.0</strong><span>cars / minute</span><small id="leaderText">Start the simulation to compare</small></article>
+        </div>
+      </section>
+
+      <footer><p><b>MODEL NOTE</b> Cars are 5m long. Drivers react identically and brake automatically to preserve space.</p><p>GREEN WAVE LAB · DETERMINISTIC MODEL</p></footer>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
