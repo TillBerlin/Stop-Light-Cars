@@ -2,6 +2,7 @@ import {
   canCloseGapOnRed,
   distanceToCarAhead,
   hasStartingClearance,
+  hasRoomForArrival,
   mustStopForRedLight,
   randomBetween,
 } from './car-physics.js';
@@ -14,6 +15,7 @@ const INITIAL_CARS = 10;
 const MAX_SPEED = 13.9;
 const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
+const ARRIVAL_INTERVAL = 2;
 const INITIAL_RED_DURATION = 1;
 
 const settings = {
@@ -73,7 +75,7 @@ for (const def of controlDefinitions) {
 }
 
 let nextCarId = 1;
-const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, lastFrame: 0, lanes: [] };
+const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: 0, lanes: [] };
 
 function createCar(position, laneIndex) {
   const node = document.createElement('div');
@@ -97,7 +99,7 @@ function fillInitialLane(laneIndex, gap) {
 
 function reset() {
   document.querySelectorAll('.car').forEach(node => node.remove());
-  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.lastFrame = 0;
+  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.arrivalClock = 0; state.lastFrame = 0;
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
   updateUI(); render();
 }
@@ -149,11 +151,14 @@ function updateLane(lane, dt) {
   for (const car of lane.cars.filter(c => c.position < ROAD_MIN - 15)) car.node.remove();
   lane.cars = lane.cars.filter(c => c.position >= ROAD_MIN - 15);
 
-  // During red, arriving traffic replenishes the queue from the right.
-  if (state.phase === 'red' && lane.cars.length < INITIAL_CARS) {
-    const last = lane.cars.reduce((furthest, c) => Math.max(furthest, c.position), ROAD_MIN);
-    const gap = lane.index === 0 ? settings.topGap : settings.bottomGap;
-    if (last < ROAD_MAX - SPAWN_BUFFER) lane.cars.push(createCar(Math.max(ROAD_MAX, last + CAR_LENGTH + gap), lane.index));
+}
+
+function addArrivingCars() {
+  for (const lane of state.lanes) {
+    const furthestPosition = lane.cars.reduce((furthest, car) => Math.max(furthest, car.position), ROAD_MIN);
+    if (hasRoomForArrival(furthestPosition, ROAD_MAX, SPAWN_BUFFER)) {
+      lane.cars.push(createCar(ROAD_MAX, lane.index));
+    }
   }
 }
 
@@ -162,11 +167,16 @@ function tick(timestamp) {
   if (!state.lastFrame) state.lastFrame = timestamp;
   const dt = Math.min((timestamp - state.lastFrame) / 1000, .05);
   state.lastFrame = timestamp; state.elapsed += dt; state.phaseRemaining -= dt;
+  state.arrivalClock += dt;
   if (state.phaseRemaining <= 0) {
     state.phase = state.phase === 'red' ? 'green' : 'red';
     state.phaseRemaining += settings.phase;
   }
   state.lanes.forEach(lane => updateLane(lane, dt));
+  while (state.arrivalClock >= ARRIVAL_INTERVAL) {
+    addArrivingCars();
+    state.arrivalClock -= ARRIVAL_INTERVAL;
+  }
   render(); updateUI(); requestAnimationFrame(tick);
 }
 

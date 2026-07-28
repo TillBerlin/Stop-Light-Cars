@@ -7,7 +7,7 @@ An interactive, deterministic traffic simulation showing how two queues respond 
 - Ten 5-meter cars initially queue in each lane.
 - Cars react to the green light and available safety distance, accelerate smoothly, and brake to avoid the car ahead. On red, queued cars continue closing available space until they reach their lane's resting gap.
 - Equal, configurable red and green phases repeat automatically.
-- New cars arrive from the right during red phases.
+- A new car arrives in each lane every two seconds, regardless of the signal phase, whenever there is room at that lane's entrance.
 - Live crossed-car counts and phase countdown.
 - Play, pause, and restart controls.
 - Responsive, accessible static application built with Vite.
