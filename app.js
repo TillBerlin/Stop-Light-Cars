@@ -157,8 +157,6 @@ function updateUI() {
   el('simTime').textContent = `${mins}:${(state.elapsed % 60).toFixed(1).padStart(4, '0')}`;
   const a = state.lanes[0]?.crossed || 0, b = state.lanes[1]?.crossed || 0;
   el('topCrossed').textContent = a; el('bottomCrossed').textContent = b;
-  el('throughput').textContent = state.elapsed ? (((a + b) / state.elapsed) * 60).toFixed(1) : '0.0';
-  el('leaderText').textContent = !state.elapsed ? 'Start the simulation to compare' : a === b ? 'Both lanes are even' : `Lane ${a > b ? 'A' : 'B'} leads by ${Math.abs(a - b)} car${Math.abs(a - b) === 1 ? '' : 's'}`;
   el('playBtn').disabled = state.running; el('stopBtn').disabled = !state.running;
   el('playBtn').querySelector('span:last-child').textContent = state.elapsed ? 'Resume' : 'Play';
 }

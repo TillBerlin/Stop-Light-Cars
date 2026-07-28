@@ -8,7 +8,7 @@ An interactive, deterministic traffic simulation showing how two queues respond 
 - Cars react to the green light and available safety distance, accelerate smoothly, and brake to avoid the car ahead.
 - Equal, configurable red and green phases repeat automatically.
 - New cars arrive from the right during red phases.
-- Live crossed-car counts, throughput, phase countdown, and comparison.
+- Live crossed-car counts and phase countdown.
 - Play, pause, and restart controls.
 - Responsive, accessible static application built with Vite.
 
