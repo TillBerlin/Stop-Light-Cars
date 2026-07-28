@@ -1,4 +1,5 @@
 import {
+  canCloseGapOnRed,
   cannotStopBeforeLine,
   distanceToCarAhead,
   hasStartingClearance,
@@ -122,7 +123,14 @@ function updateLane(lane, dt) {
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
     const mayCreep = ahead && gap > restingGap && ahead.speed < STOPPED_SPEED;
-    const allowed = (mayCrossSignal && (hasSpace || !ahead)) || mayCreep;
+    const closingGapOnRed = canCloseGapOnRed(
+      state.phase,
+      current.position,
+      STOP_POSITION,
+      gap,
+      restingGap,
+    );
+    const allowed = (mayCrossSignal && (hasSpace || !ahead)) || mayCreep || closingGapOnRed;
 
     if (current.speed < STOPPED_SPEED && allowed) car.reactionClock += dt;
     else if (!allowed && current.speed < STOPPED_SPEED) car.reactionClock = 0;
@@ -145,8 +153,9 @@ function updateLane(lane, dt) {
 
     if (!mayCrossSignal && current.position > STOP_POSITION) {
       // A driver who intends to stop may coast until braking is necessary, but
-      // must not accelerate merely because the car ahead entered on orange.
-      speedLimit = Math.min(speedLimit, current.speed);
+      // must not accelerate toward an empty red light. When there is a queue
+      // ahead, it may still close that gap before stopping at the line.
+      if (!closingGapOnRed && !mayCreep) speedLimit = Math.min(speedLimit, current.speed);
       const distanceToLine = current.position - (CAR_LENGTH / 2 + .5);
       shouldBrake ||= shouldBrakeForTarget(
         distanceToLine,
