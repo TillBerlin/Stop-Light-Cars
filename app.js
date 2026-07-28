@@ -8,6 +8,7 @@ const INITIAL_CARS = 10;
 const MAX_SPEED = 13.9;
 const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
+const INITIAL_RED_DURATION = 1;
 
 const settings = { reaction: 0.8, acceleration: 2.2, safety: 6, phase: 12, topGap: 2.5, bottomGap: 5 };
 const controlDefinitions = [
@@ -32,7 +33,9 @@ for (const def of controlDefinitions) {
     output.textContent = `${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}`;
     if (def.key === 'topGap') el('topGapMetric').textContent = `${settings.topGap.toFixed(1)}m`;
     if (def.key === 'bottomGap') el('bottomGapMetric').textContent = `${settings.bottomGap.toFixed(1)}m`;
-    if (def.key === 'phase' && !state.running) state.phaseRemaining = settings.phase;
+    if (def.key === 'phase' && !state.running) {
+      state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.phase;
+    }
     if ((def.key === 'topGap' || def.key === 'bottomGap') && state.elapsed === 0) reset();
     updateUI();
   });
@@ -40,7 +43,7 @@ for (const def of controlDefinitions) {
 }
 
 let nextCarId = 1;
-const state = { running: false, phase: 'red', phaseRemaining: settings.phase, elapsed: 0, lastFrame: 0, lanes: [] };
+const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, lastFrame: 0, lanes: [] };
 
 function createCar(position, laneIndex) {
   const node = document.createElement('div');
@@ -59,7 +62,7 @@ function fillInitialLane(laneIndex, gap) {
 
 function reset() {
   document.querySelectorAll('.car').forEach(node => node.remove());
-  state.running = false; state.phase = 'red'; state.phaseRemaining = settings.phase; state.elapsed = 0; state.lastFrame = 0;
+  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.lastFrame = 0;
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
   updateUI(); render();
 }
