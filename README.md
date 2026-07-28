@@ -1,0 +1,41 @@
+# Green Wave Lab
+
+An interactive, deterministic traffic simulation showing how two queues respond to one traffic light. Both lanes share reaction time, acceleration, safety distance, and signal timing; each lane has its own resting gap so their throughput can be compared.
+
+## Features
+
+- Ten 5-meter cars initially queue in each lane.
+- Cars react to the green light and available safety distance, accelerate smoothly, and brake to avoid the car ahead.
+- Equal, configurable red and green phases repeat automatically.
+- The first green begins after a short two-second red countdown.
+- New cars arrive from the right during red phases.
+- Live crossed-car counts, throughput, phase countdown, and comparison.
+- Play, pause, and restart controls.
+- Responsive, accessible static application built with Vite.
+
+## Run locally
+
+Install the development dependency and start Vite:
+
+```bash
+npm install
+npm run dev
+```
+
+Then open the local URL printed by Vite. To verify the production bundle locally, run `npm run build` followed by `npm run preview`.
+
+## Deploy to GitHub Pages
+
+The workflow in `.github/workflows/deploy.yml` builds the Vite application and deploys the generated `dist` directory whenever a change is merged or pushed to `main`. The workflow can also be started manually.
+
+1. Create a public GitHub repository and push this project to its `main` branch.
+2. Open **Settings → Pages** in the GitHub repository.
+3. Under **Build and deployment**, choose **GitHub Actions** as the source.
+4. Open the **Actions** tab and wait for **Deploy static site to Pages** to finish. You can also run it manually with **Run workflow**.
+5. The deployment job and the repository's Pages settings show the public URL, normally `https://<username>.github.io/<repository>/`.
+
+The Vite `base` option is set to `/Stop-Light-Cars/` in `vite.config.js`, matching this repository name so generated asset URLs work at the GitHub Pages project URL. If the repository is renamed, update that value to `/<new-repository-name>/` before deploying.
+
+## Model assumptions
+
+The simulation uses a simplified one-dimensional car-following model. All drivers behave identically. A stopped driver begins reacting only when the signal is green and the clear distance ahead meets the selected safety distance. Moving cars accelerate up to 50 km/h and apply a fixed braking rate when approaching a red light or another car. This is an educational visualization rather than a traffic-engineering predictor.
