@@ -1,4 +1,5 @@
 import {
+  canCloseGapOnRed,
   distanceToCarAhead,
   hasStartingClearance,
   mustStopForRedLight,
@@ -79,32 +80,37 @@ function updateLane(lane, dt) {
     const car = lane.cars[i];
     const ahead = lane.cars[i - 1];
 
-    // A red phase freezes approaching traffic in place. Cars that have already
-    // crossed the stop line continue clearing the intersection.
-    if (mustStopForRedLight(state.phase, car.position, STOP_POSITION)) {
-      car.braking = car.speed > .05;
-      car.speed = 0;
-      car.reactionClock = 0;
-      continue;
-    }
-
     const gap = distanceToCarAhead(car, ahead, CAR_LENGTH);
     const hasSpace = hasStartingClearance(gap, settings.safety);
-    const allowed = state.phase === 'green' && hasSpace;
+    const restingGap = lane.index === 0 ? settings.topGap : settings.bottomGap;
+    const closingGapOnRed = canCloseGapOnRed(
+      state.phase,
+      car.position,
+      STOP_POSITION,
+      gap,
+      restingGap,
+    );
+    const allowed = (state.phase === 'green' && hasSpace) || closingGapOnRed;
 
     if (car.speed < .05 && allowed) car.reactionClock += dt;
     else if (!allowed && car.speed < .05) car.reactionClock = 0;
 
     const reacting = car.reactionClock >= settings.reaction;
-    const tooClose = gap < desiredGap(car.speed);
+    const stoppingGap = closingGapOnRed ? restingGap + Math.max(0, car.speed * .35) : desiredGap(car.speed);
+    const tooClose = gap < stoppingGap;
     car.braking = tooClose;
     if (car.braking) car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
-    else if ((reacting || car.speed > .05) && (state.phase === 'green' || car.position < STOP_POSITION)) car.speed = Math.min(MAX_SPEED, car.speed + settings.acceleration * dt);
+    else if ((reacting || car.speed > .05) && (state.phase === 'green' || car.position < STOP_POSITION || closingGapOnRed)) car.speed = Math.min(MAX_SPEED, car.speed + settings.acceleration * dt);
     else car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
 
     let nextPosition = car.position - car.speed * dt;
-    if (ahead) nextPosition = Math.max(nextPosition, ahead.position + CAR_LENGTH + Math.max(1.2, settings.safety * .55));
-    if (state.phase === 'red' && car.position > STOP_POSITION) nextPosition = Math.max(nextPosition, CAR_LENGTH / 2 + .5);
+    if (ahead) {
+      const minimumGap = mustStopForRedLight(state.phase, car.position, STOP_POSITION)
+        ? restingGap
+        : Math.max(1.2, settings.safety * .55);
+      nextPosition = Math.max(nextPosition, ahead.position + CAR_LENGTH + minimumGap);
+    }
+    if (mustStopForRedLight(state.phase, car.position, STOP_POSITION)) nextPosition = Math.max(nextPosition, CAR_LENGTH / 2 + .5);
     car.position = nextPosition;
 
     if (!car.crossed && car.position < -CAR_LENGTH / 2) { car.crossed = true; lane.crossed++; }

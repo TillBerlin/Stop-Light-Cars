@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  canCloseGapOnRed,
   distanceToCarAhead,
   hasStartingClearance,
   mustStopForRedLight,
@@ -21,8 +22,16 @@ test('starts only when clearance is bigger than the safety distance', () => {
   assert.equal(hasStartingClearance(5.9, 6), false);
 });
 
-test('a red light immediately stops cars that have not crossed the stop line', () => {
+test('identifies cars approaching a red stop line', () => {
   assert.equal(mustStopForRedLight('red', 20, 0), true);
   assert.equal(mustStopForRedLight('green', 20, 0), false);
   assert.equal(mustStopForRedLight('red', -1, 0), false);
+});
+
+test('cars can close an available gap while the light is red', () => {
+  assert.equal(canCloseGapOnRed('red', 20, 0, 6.1, 6), true);
+  assert.equal(canCloseGapOnRed('red', 20, 0, 6, 6), false);
+  assert.equal(canCloseGapOnRed('red', 20, 0, Infinity, 6), false);
+  assert.equal(canCloseGapOnRed('green', 20, 0, 8, 6), false);
+  assert.equal(canCloseGapOnRed('red', -1, 0, 8, 6), false);
 });
