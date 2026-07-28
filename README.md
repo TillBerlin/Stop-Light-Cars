@@ -26,6 +26,21 @@ Then open the local URL printed by Vite. To verify the production bundle locally
 ## Deploy to GitHub Pages
 
 The workflow in `.github/workflows/deploy.yml` builds the Vite application and deploys the generated `dist` directory whenever a change is merged or pushed to `main`. The workflow can also be started manually.
+- Responsive, accessible, dependency-free static application.
+
+## Run locally
+
+No build step or dependencies are required. Start any static file server in the repository root:
+
+```bash
+python3 -m http.server 4173
+```
+
+Then visit <http://localhost:4173>.
+
+## Deploy to GitHub Pages
+
+The workflow in `.github/workflows/deploy.yml` deploys the repository as a static site whenever `main` is updated.
 
 1. Create a public GitHub repository and push this project to its `main` branch.
 2. Open **Settings → Pages** in the GitHub repository.
@@ -34,6 +49,7 @@ The workflow in `.github/workflows/deploy.yml` builds the Vite application and d
 5. The deployment job and the repository's Pages settings show the public URL, normally `https://<username>.github.io/<repository>/`.
 
 The Vite `base` option is set to `/Stop-Light-Cars/` in `vite.config.js`, matching this repository name so generated asset URLs work at the GitHub Pages project URL. If the repository is renamed, update that value to `/<new-repository-name>/` before deploying.
+Because asset links are relative, the site works both at a user/organization root and beneath a project-repository path.
 
 ## Model assumptions
 
