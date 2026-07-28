@@ -165,5 +165,13 @@ function updateUI() {
 
 el('playBtn').addEventListener('click', () => { if (!state.running) { state.running = true; state.lastFrame = 0; updateUI(); requestAnimationFrame(tick); } });
 el('stopBtn').addEventListener('click', () => { state.running = false; state.lastFrame = 0; updateUI(); });
-el('restartBtn').addEventListener('click', reset);
+el('restartBtn').addEventListener('click', () => {
+  // Restart begins a fresh run immediately, so its one-second opening red
+  // phase counts down instead of remaining frozen until Play is pressed.
+  const animationWasRunning = state.running;
+  reset();
+  state.running = true;
+  updateUI();
+  if (!animationWasRunning) requestAnimationFrame(tick);
+});
 reset();
