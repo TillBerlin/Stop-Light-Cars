@@ -5,6 +5,7 @@ import {
   canCloseGapOnRed,
   distanceToCarAhead,
   hasStartingClearance,
+  hasRoomForArrival,
   mustStopForRedLight,
   randomBetween,
 } from './car-physics.js';
@@ -35,6 +36,12 @@ test('cars can close an available gap while the light is red', () => {
   assert.equal(canCloseGapOnRed('red', 20, 0, Infinity, 6), false);
   assert.equal(canCloseGapOnRed('green', 20, 0, 8, 6), false);
   assert.equal(canCloseGapOnRed('red', -1, 0, 8, 6), false);
+});
+
+test('allows an arrival only while the end of a lane has room', () => {
+  assert.equal(hasRoomForArrival(101.9, 110, 8), true);
+  assert.equal(hasRoomForArrival(102, 110, 8), false);
+  assert.equal(hasRoomForArrival(109, 110, 8), false);
 });
 
 test('samples driver characteristics uniformly between their bounds', () => {

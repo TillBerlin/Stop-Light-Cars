@@ -17,6 +17,10 @@ export function canCloseGapOnRed(phase, position, stopPosition, distance, restin
     && distance > restingDistance;
 }
 
+export function hasRoomForArrival(furthestPosition, roadMaximum, spawnBuffer) {
+  return furthestPosition < roadMaximum - spawnBuffer;
+}
+
 export function randomBetween(minimum, maximum, random = Math.random) {
   if (minimum === maximum) return minimum;
   return minimum + random() * (maximum - minimum);
