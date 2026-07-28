@@ -14,7 +14,7 @@ const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
 
-const settings = { reaction: 0.8, acceleration: 2.2, safety: 6, phase: 12, topGap: 2.5, bottomGap: 5 };
+const settings = { reaction: 0.8, acceleration: 2.2, safety: 4, phase: 12, topGap: 2.5, bottomGap: 5 };
 const controlDefinitions = [
   { key: 'reaction', label: 'Reaction time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Shared by both lanes' },
   { key: 'acceleration', label: 'Acceleration', min: .5, max: 4, step: .1, unit: 'm/s²', note: 'Shared by both lanes' },
