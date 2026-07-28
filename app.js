@@ -10,6 +10,8 @@ import {
 
 const CAR_LENGTH = 5;
 const STOP_POSITION = 0;
+const STOP_LINE_BUFFER = .5;
+const STOPPED_FRONT_POSITION = STOP_POSITION + CAR_LENGTH / 2 + STOP_LINE_BUFFER;
 const ROAD_MIN = -24;
 const ROAD_MAX = 110;
 const INITIAL_CARS = 10;
@@ -97,7 +99,9 @@ function createCar(position, laneIndex) {
 
 function fillInitialLane(laneIndex, gap) {
   const cars = [];
-  const front = 2.5;
+  // Start the queue at the same boundary enforced by the red-light physics.
+  // Otherwise the first update has to push the lead car away from the line.
+  const front = STOPPED_FRONT_POSITION;
   for (let i = 0; i < INITIAL_CARS; i++) cars.push(createCar(front + i * (CAR_LENGTH + gap), laneIndex));
   return { cars, crossed: 0, index: laneIndex };
 }
@@ -156,7 +160,7 @@ function updateLane(lane, dt) {
       // must not accelerate toward an empty red light. When there is a queue
       // ahead, it may still close that gap before stopping at the line.
       if (!closingGapOnRed && !mayCreep) speedLimit = Math.min(speedLimit, current.speed);
-      const distanceToLine = current.position - (CAR_LENGTH / 2 + .5);
+      const distanceToLine = current.position - STOPPED_FRONT_POSITION;
       shouldBrake ||= shouldBrakeForTarget(
         distanceToLine,
         current.speed,
@@ -185,7 +189,7 @@ function updateLane(lane, dt) {
       }
     }
     if (!mayCrossSignal && current.position > STOP_POSITION) {
-      const lineBoundary = CAR_LENGTH / 2 + .5;
+      const lineBoundary = STOPPED_FRONT_POSITION;
       if (nextPosition < lineBoundary) {
         nextPosition = lineBoundary;
         car.speed = 0;
@@ -208,7 +212,7 @@ function beginOrangePhase() {
   state.phaseRemaining += ORANGE_DURATION;
   for (const lane of state.lanes) for (const car of lane.cars) {
     car.committedToCross = car.position > STOP_POSITION && cannotStopBeforeLine(
-      car.position - (CAR_LENGTH / 2 + .5),
+      car.position - STOPPED_FRONT_POSITION,
       car.speed,
       BRAKE_RATE,
       car.reaction,
