@@ -1,3 +1,5 @@
+import { distanceToCarAhead, hasStartingClearance } from './car-physics.js';
+
 const CAR_LENGTH = 5;
 const STOP_POSITION = 0;
 const ROAD_MIN = -24;
@@ -69,10 +71,10 @@ function updateLane(lane, dt) {
   for (let i = 0; i < lane.cars.length; i++) {
     const car = lane.cars[i];
     const ahead = lane.cars[i - 1];
-    const gap = ahead ? ahead.position - car.position - CAR_LENGTH : Infinity;
+    const gap = distanceToCarAhead(car, ahead, CAR_LENGTH);
     const stopGap = car.position - STOP_POSITION - CAR_LENGTH / 2;
     const blockedByLight = state.phase === 'red' && car.position > STOP_POSITION && stopGap < desiredGap(car.speed) + 4;
-    const hasSpace = gap >= settings.safety;
+    const hasSpace = hasStartingClearance(gap, settings.safety);
     const allowed = state.phase === 'green' && hasSpace;
 
     if (car.speed < .05 && allowed) car.reactionClock += dt;
