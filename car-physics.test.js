@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 
 import {
   canCloseGapOnRed,
+  cannotStopBeforeLine,
   distanceToCarAhead,
   hasStartingClearance,
   hasRoomForArrival,
   mustStopForRedLight,
   randomBetween,
+  relativeStoppingDistance,
+  shouldBrakeForTarget,
 } from './car-physics.js';
 
 test('measures the clear distance in the direction cars travel', () => {
@@ -52,4 +55,21 @@ test('samples driver characteristics uniformly between their bounds', () => {
 
 test('does not consume randomness when both bounds are identical', () => {
   assert.equal(randomBetween(0.8, 0.8, () => { throw new Error('random called'); }), 0.8);
+});
+
+test('calculates stopping distance from relative rather than absolute speed', () => {
+  assert.equal(relativeStoppingDistance(10, 10, 5, 1), 0);
+  assert.equal(relativeStoppingDistance(10, 5, 5, 1), 7.5);
+  assert.equal(relativeStoppingDistance(10, 0, 5, 1), 20);
+});
+
+test('brakes early enough to preserve the requested resting distance', () => {
+  assert.equal(shouldBrakeForTarget(7.5, 10, 5, 5, 1), true);
+  assert.equal(shouldBrakeForTarget(7.6, 10, 5, 5, 1), false);
+});
+
+test('makes each orange-light stopping decision from its own state', () => {
+  assert.equal(cannotStopBeforeLine(19.9, 10, 5, 1), true);
+  assert.equal(cannotStopBeforeLine(20, 10, 5, 1), false);
+  assert.equal(cannotStopBeforeLine(1, 0, 5, 1), false);
 });
