@@ -3,6 +3,7 @@ import {
   distanceToCarAhead,
   hasStartingClearance,
   mustStopForRedLight,
+  randomBetween,
 } from './car-physics.js';
 
 const CAR_LENGTH = 5;
@@ -15,11 +16,16 @@ const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
 
-const settings = { reaction: 0.8, acceleration: 2.2, safety: 4, phase: 12, topGap: 2.5, bottomGap: 5 };
+const settings = {
+  reactionMin: 0.8, reactionMax: 0.8,
+  accelerationMin: 2.2, accelerationMax: 2.2,
+  safetyMin: 4, safetyMax: 4,
+  phase: 12, topGap: 2.5, bottomGap: 5,
+};
 const controlDefinitions = [
-  { key: 'reaction', label: 'Reaction time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Shared by both lanes' },
-  { key: 'acceleration', label: 'Acceleration', min: .5, max: 4, step: .1, unit: 'm/s²', note: 'Shared by both lanes' },
-  { key: 'safety', label: 'Safety distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Shared by both lanes' },
+  { key: 'reaction', label: 'Reaction time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
+  { key: 'acceleration', label: 'Acceleration', min: .5, max: 4, step: .1, unit: 'm/s²', note: 'Uniform range per car', range: true },
+  { key: 'safety', label: 'Safety distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
   { key: 'phase', label: 'Green / red time', min: 5, max: 30, step: 1, unit: 's', note: 'Equal phase duration' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
   { key: 'bottomGap', label: 'Bottom resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane B only', className: 'bottom' },
@@ -29,8 +35,27 @@ const el = id => document.getElementById(id);
 const controls = el('controls');
 for (const def of controlDefinitions) {
   const wrapper = document.createElement('div');
-  wrapper.className = `slider-control ${def.className || ''}`;
-  wrapper.innerHTML = `<label for="${def.key}"><span>${def.label}</span><output>${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}</output></label><input id="${def.key}" type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${settings[def.key]}"><small>${def.note}</small>`;
+  wrapper.className = `slider-control ${def.range ? 'range-control' : ''} ${def.className || ''}`;
+  const decimals = def.step < 1 ? 1 : 0;
+  if (def.range) {
+    const low = settings[`${def.key}Min`], high = settings[`${def.key}Max`];
+    wrapper.innerHTML = `<label><span>${def.label}</span><output>${low.toFixed(decimals)}–${high.toFixed(decimals)} ${def.unit}</output></label><div class="range-inputs"><input class="range-min" aria-label="Minimum ${def.label.toLowerCase()}" type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${low}"><input class="range-max" aria-label="Maximum ${def.label.toLowerCase()}" type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${high}"></div><small>${def.note}</small>`;
+    const [minimum, maximum] = wrapper.querySelectorAll('input');
+    const output = wrapper.querySelector('output');
+    const updateRange = event => {
+      if (event.target === minimum && Number(minimum.value) > Number(maximum.value)) maximum.value = minimum.value;
+      if (event.target === maximum && Number(maximum.value) < Number(minimum.value)) minimum.value = maximum.value;
+      settings[`${def.key}Min`] = Number(minimum.value);
+      settings[`${def.key}Max`] = Number(maximum.value);
+      output.textContent = `${settings[`${def.key}Min`].toFixed(decimals)}–${settings[`${def.key}Max`].toFixed(decimals)} ${def.unit}`;
+      if (state.elapsed === 0) reset();
+    };
+    minimum.addEventListener('input', updateRange);
+    maximum.addEventListener('input', updateRange);
+    controls.appendChild(wrapper);
+    continue;
+  }
+  wrapper.innerHTML = `<label for="${def.key}"><span>${def.label}</span><output>${settings[def.key].toFixed(decimals)} ${def.unit}</output></label><input id="${def.key}" type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${settings[def.key]}"><small>${def.note}</small>`;
   const input = wrapper.querySelector('input');
   const output = wrapper.querySelector('output');
   input.addEventListener('input', () => {
@@ -55,7 +80,12 @@ function createCar(position, laneIndex) {
   node.className = 'car';
   node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
-  return { id: nextCarId++, position, speed: 0, reactionClock: 0, crossed: false, braking: false, node };
+  return {
+    id: nextCarId++, position, speed: 0, reactionClock: 0, crossed: false, braking: false, node,
+    reaction: randomBetween(settings.reactionMin, settings.reactionMax),
+    acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
+    safety: randomBetween(settings.safetyMin, settings.safetyMax),
+  };
 }
 
 function fillInitialLane(laneIndex, gap) {
@@ -72,7 +102,7 @@ function reset() {
   updateUI(); render();
 }
 
-function desiredGap(speed) { return settings.safety + Math.max(0, speed * .35); }
+function desiredGap(car) { return car.safety + Math.max(0, car.speed * .35); }
 
 function updateLane(lane, dt) {
   lane.cars.sort((a, b) => a.position - b.position);
@@ -81,7 +111,7 @@ function updateLane(lane, dt) {
     const ahead = lane.cars[i - 1];
 
     const gap = distanceToCarAhead(car, ahead, CAR_LENGTH);
-    const hasSpace = hasStartingClearance(gap, settings.safety);
+    const hasSpace = hasStartingClearance(gap, car.safety);
     const restingGap = lane.index === 0 ? settings.topGap : settings.bottomGap;
     const closingGapOnRed = canCloseGapOnRed(
       state.phase,
@@ -95,19 +125,19 @@ function updateLane(lane, dt) {
     if (car.speed < .05 && allowed) car.reactionClock += dt;
     else if (!allowed && car.speed < .05) car.reactionClock = 0;
 
-    const reacting = car.reactionClock >= settings.reaction;
-    const stoppingGap = closingGapOnRed ? restingGap + Math.max(0, car.speed * .35) : desiredGap(car.speed);
+    const reacting = car.reactionClock >= car.reaction;
+    const stoppingGap = closingGapOnRed ? restingGap + Math.max(0, car.speed * .35) : desiredGap(car);
     const tooClose = gap < stoppingGap;
     car.braking = tooClose;
     if (car.braking) car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
-    else if ((reacting || car.speed > .05) && (state.phase === 'green' || car.position < STOP_POSITION || closingGapOnRed)) car.speed = Math.min(MAX_SPEED, car.speed + settings.acceleration * dt);
+    else if ((reacting || car.speed > .05) && (state.phase === 'green' || car.position < STOP_POSITION || closingGapOnRed)) car.speed = Math.min(MAX_SPEED, car.speed + car.acceleration * dt);
     else car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
 
     let nextPosition = car.position - car.speed * dt;
     if (ahead) {
       const minimumGap = mustStopForRedLight(state.phase, car.position, STOP_POSITION)
         ? restingGap
-        : Math.max(1.2, settings.safety * .55);
+        : Math.max(1.2, car.safety * .55);
       nextPosition = Math.max(nextPosition, ahead.position + CAR_LENGTH + minimumGap);
     }
     if (mustStopForRedLight(state.phase, car.position, STOP_POSITION)) nextPosition = Math.max(nextPosition, CAR_LENGTH / 2 + .5);

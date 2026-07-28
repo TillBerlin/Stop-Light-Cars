@@ -6,6 +6,7 @@ import {
   distanceToCarAhead,
   hasStartingClearance,
   mustStopForRedLight,
+  randomBetween,
 } from './car-physics.js';
 
 test('measures the clear distance in the direction cars travel', () => {
@@ -34,4 +35,14 @@ test('cars can close an available gap while the light is red', () => {
   assert.equal(canCloseGapOnRed('red', 20, 0, Infinity, 6), false);
   assert.equal(canCloseGapOnRed('green', 20, 0, 8, 6), false);
   assert.equal(canCloseGapOnRed('red', -1, 0, 8, 6), false);
+});
+
+test('samples driver characteristics uniformly between their bounds', () => {
+  assert.equal(randomBetween(0.5, 2.5, () => 0), 0.5);
+  assert.equal(randomBetween(0.5, 2.5, () => 0.5), 1.5);
+  assert.equal(randomBetween(0.5, 2.5, () => 1), 2.5);
+});
+
+test('does not consume randomness when both bounds are identical', () => {
+  assert.equal(randomBetween(0.8, 0.8, () => { throw new Error('random called'); }), 0.8);
 });
