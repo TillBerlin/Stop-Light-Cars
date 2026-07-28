@@ -9,3 +9,7 @@ export function hasStartingClearance(distance, safetyDistance) {
 export function mustStopForRedLight(phase, position, stopPosition) {
   return phase === 'red' && position > stopPosition;
 }
+
+export function hasLaneEntranceClearance(cars, entrancePosition, minimumSpacing) {
+  return cars.every(car => entrancePosition - car.position >= minimumSpacing);
+}

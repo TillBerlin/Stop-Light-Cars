@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   distanceToCarAhead,
+  hasLaneEntranceClearance,
   hasStartingClearance,
   mustStopForRedLight,
 } from './car-physics.js';
@@ -13,6 +14,13 @@ test('measures the clear distance in the direction cars travel', () => {
 
   assert.equal(distanceToCarAhead(car, carAhead, 5), 7);
   assert.equal(distanceToCarAhead(car, undefined, 5), Infinity);
+});
+
+test('allows a new arrival only when the lane entrance has enough room', () => {
+  assert.equal(hasLaneEntranceClearance([], 110, 13), true);
+  assert.equal(hasLaneEntranceClearance([{ position: 96.9 }], 110, 13), true);
+  assert.equal(hasLaneEntranceClearance([{ position: 97.1 }], 110, 13), false);
+  assert.equal(hasLaneEntranceClearance([{ position: 40 }, { position: 105 }], 110, 13), false);
 });
 
 test('starts only when clearance is bigger than the safety distance', () => {

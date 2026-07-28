@@ -1,7 +1,7 @@
 import {
   distanceToCarAhead,
+  hasLaneEntranceClearance,
   hasStartingClearance,
-  mustStopForRedLight,
 } from './car-physics.js';
 
 const CAR_LENGTH = 5;
@@ -12,6 +12,7 @@ const INITIAL_CARS = 10;
 const MAX_SPEED = 13.9;
 const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
+const ARRIVAL_INTERVAL = 2;
 const INITIAL_RED_DURATION = 1;
 
 const settings = { reaction: 0.8, acceleration: 2.2, safety: 4, phase: 12, topGap: 2.5, bottomGap: 5 };
@@ -61,7 +62,7 @@ function fillInitialLane(laneIndex, gap) {
   const cars = [];
   const front = 2.5;
   for (let i = 0; i < INITIAL_CARS; i++) cars.push(createCar(front + i * (CAR_LENGTH + gap), laneIndex));
-  return { cars, crossed: 0, index: laneIndex };
+  return { cars, crossed: 0, index: laneIndex, arrivalClock: 0 };
 }
 
 function reset() {
@@ -79,32 +80,27 @@ function updateLane(lane, dt) {
     const car = lane.cars[i];
     const ahead = lane.cars[i - 1];
 
-    // A red phase freezes approaching traffic in place. Cars that have already
-    // crossed the stop line continue clearing the intersection.
-    if (mustStopForRedLight(state.phase, car.position, STOP_POSITION)) {
-      car.braking = car.speed > .05;
-      car.speed = 0;
-      car.reactionClock = 0;
-      continue;
-    }
-
     const gap = distanceToCarAhead(car, ahead, CAR_LENGTH);
     const hasSpace = hasStartingClearance(gap, settings.safety);
-    const allowed = state.phase === 'green' && hasSpace;
+    const stopCenter = STOP_POSITION + CAR_LENGTH / 2;
+    const approachingRed = state.phase === 'red' && car.position > STOP_POSITION;
+    const distanceToStop = car.position - stopCenter;
+    const allowed = hasSpace && (!approachingRed || distanceToStop > settings.safety);
 
     if (car.speed < .05 && allowed) car.reactionClock += dt;
     else if (!allowed && car.speed < .05) car.reactionClock = 0;
 
     const reacting = car.reactionClock >= settings.reaction;
-    const tooClose = gap < desiredGap(car.speed);
+    const brakingDistance = (car.speed * car.speed) / (2 * BRAKE_RATE) + .5;
+    const tooClose = gap < desiredGap(car.speed) || (approachingRed && distanceToStop <= brakingDistance);
     car.braking = tooClose;
     if (car.braking) car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
-    else if ((reacting || car.speed > .05) && (state.phase === 'green' || car.position < STOP_POSITION)) car.speed = Math.min(MAX_SPEED, car.speed + settings.acceleration * dt);
+    else if ((reacting || car.speed > .05) && (!approachingRed || distanceToStop > 0)) car.speed = Math.min(MAX_SPEED, car.speed + settings.acceleration * dt);
     else car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
 
     let nextPosition = car.position - car.speed * dt;
     if (ahead) nextPosition = Math.max(nextPosition, ahead.position + CAR_LENGTH + Math.max(1.2, settings.safety * .55));
-    if (state.phase === 'red' && car.position > STOP_POSITION) nextPosition = Math.max(nextPosition, CAR_LENGTH / 2 + .5);
+    if (approachingRed) nextPosition = Math.max(nextPosition, stopCenter);
     car.position = nextPosition;
 
     if (!car.crossed && car.position < -CAR_LENGTH / 2) { car.crossed = true; lane.crossed++; }
@@ -113,11 +109,18 @@ function updateLane(lane, dt) {
   for (const car of lane.cars.filter(c => c.position < ROAD_MIN - 15)) car.node.remove();
   lane.cars = lane.cars.filter(c => c.position >= ROAD_MIN - 15);
 
-  // During red, arriving traffic replenishes the queue from the right.
-  if (state.phase === 'red' && lane.cars.length < INITIAL_CARS) {
-    const last = lane.cars.reduce((furthest, c) => Math.max(furthest, c.position), ROAD_MIN);
-    const gap = lane.index === 0 ? settings.topGap : settings.bottomGap;
-    if (last < ROAD_MAX - SPAWN_BUFFER) lane.cars.push(createCar(Math.max(ROAD_MAX, last + CAR_LENGTH + gap), lane.index));
+  // One car reaches each lane entrance every two seconds during red. If the
+  // entrance is blocked, that arrival is skipped until the next interval.
+  if (state.phase === 'red') {
+    lane.arrivalClock += dt;
+    if (lane.arrivalClock >= ARRIVAL_INTERVAL) {
+      lane.arrivalClock %= ARRIVAL_INTERVAL;
+      if (hasLaneEntranceClearance(lane.cars, ROAD_MAX, CAR_LENGTH + SPAWN_BUFFER)) {
+        lane.cars.push(createCar(ROAD_MAX, lane.index));
+      }
+    }
+  } else {
+    lane.arrivalClock = 0;
   }
 }
 
