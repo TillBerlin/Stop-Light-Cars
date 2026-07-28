@@ -10,6 +10,22 @@ An interactive, deterministic traffic simulation showing how two queues respond 
 - New cars arrive from the right during red phases.
 - Live crossed-car counts, throughput, phase countdown, and comparison.
 - Play, pause, and restart controls.
+- Responsive, accessible static application built with Vite.
+
+## Run locally
+
+Install the development dependency and start Vite:
+
+```bash
+npm install
+npm run dev
+```
+
+Then open the local URL printed by Vite. To verify the production bundle locally, run `npm run build` followed by `npm run preview`.
+
+## Deploy to GitHub Pages
+
+The workflow in `.github/workflows/deploy.yml` builds the Vite application and deploys the generated `dist` directory whenever a change is merged or pushed to `main`. The workflow can also be started manually.
 - Responsive, accessible, dependency-free static application.
 
 ## Run locally
@@ -32,6 +48,7 @@ The workflow in `.github/workflows/deploy.yml` deploys the repository as a stati
 4. Open the **Actions** tab and wait for **Deploy static site to Pages** to finish. You can also run it manually with **Run workflow**.
 5. The deployment job and the repository's Pages settings show the public URL, normally `https://<username>.github.io/<repository>/`.
 
+The Vite `base` option is set to `/Stop-Light-Cars/` in `vite.config.js`, matching this repository name so generated asset URLs work at the GitHub Pages project URL. If the repository is renamed, update that value to `/<new-repository-name>/` before deploying.
 Because asset links are relative, the site works both at a user/organization root and beneath a project-repository path.
 
 ## Model assumptions
