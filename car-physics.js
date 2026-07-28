@@ -5,3 +5,7 @@ export function distanceToCarAhead(car, carAhead, carLength) {
 export function hasStartingClearance(distance, safetyDistance) {
   return distance > safetyDistance;
 }
+
+export function mustStopForRedLight(phase, position, stopPosition) {
+  return phase === 'red' && position > stopPosition;
+}
