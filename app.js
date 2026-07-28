@@ -1,10 +1,10 @@
 import {
-  canCloseGapOnRed,
+  cannotStopBeforeLine,
   distanceToCarAhead,
   hasStartingClearance,
   hasRoomForArrival,
-  mustStopForRedLight,
   randomBetween,
+  shouldBrakeForTarget,
 } from './car-physics.js';
 
 const CAR_LENGTH = 5;
@@ -17,6 +17,9 @@ const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
 const ARRIVAL_INTERVAL = 2;
 const INITIAL_RED_DURATION = 1;
+const ORANGE_DURATION = 1;
+const CREEP_SPEED = 1.5;
+const STOPPED_SPEED = .05;
 
 const settings = {
   reactionMin: 0.8, reactionMax: 0.8,
@@ -83,7 +86,8 @@ function createCar(position, laneIndex) {
   node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
-    id: nextCarId++, position, speed: 0, reactionClock: 0, crossed: false, braking: false, node,
+    id: nextCarId++, position, speed: 0, reactionClock: 0, crossed: false, braking: false,
+    committedToCross: false, node,
     reaction: randomBetween(settings.reactionMin, settings.reactionMax),
     acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
     safety: randomBetween(settings.safetyMin, settings.safetyMax),
@@ -104,46 +108,83 @@ function reset() {
   updateUI(); render();
 }
 
-function desiredGap(car) { return car.safety + Math.max(0, car.speed * .35); }
-
 function updateLane(lane, dt) {
   lane.cars.sort((a, b) => a.position - b.position);
+  const snapshot = lane.cars.map(car => ({ position: car.position, speed: car.speed }));
   for (let i = 0; i < lane.cars.length; i++) {
     const car = lane.cars[i];
-    const ahead = lane.cars[i - 1];
+    const current = snapshot[i];
+    const ahead = snapshot[i - 1];
 
-    const gap = distanceToCarAhead(car, ahead, CAR_LENGTH);
+    const gap = distanceToCarAhead(current, ahead, CAR_LENGTH);
     const hasSpace = hasStartingClearance(gap, car.safety);
     const restingGap = lane.index === 0 ? settings.topGap : settings.bottomGap;
-    const closingGapOnRed = canCloseGapOnRed(
-      state.phase,
-      car.position,
-      STOP_POSITION,
-      gap,
-      restingGap,
-    );
-    const allowed = (state.phase === 'green' && hasSpace) || closingGapOnRed;
+    const pastLine = current.position <= STOP_POSITION;
+    const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
+    const mayCreep = ahead && gap > restingGap && ahead.speed < STOPPED_SPEED;
+    const allowed = (mayCrossSignal && (hasSpace || !ahead)) || mayCreep;
 
-    if (car.speed < .05 && allowed) car.reactionClock += dt;
-    else if (!allowed && car.speed < .05) car.reactionClock = 0;
+    if (current.speed < STOPPED_SPEED && allowed) car.reactionClock += dt;
+    else if (!allowed && current.speed < STOPPED_SPEED) car.reactionClock = 0;
 
     const reacting = car.reactionClock >= car.reaction;
-    const stoppingGap = closingGapOnRed ? restingGap + Math.max(0, car.speed * .35) : desiredGap(car);
-    const tooClose = gap < stoppingGap;
-    car.braking = tooClose;
-    if (car.braking) car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
-    else if ((reacting || car.speed > .05) && (state.phase === 'green' || car.position < STOP_POSITION || closingGapOnRed)) car.speed = Math.min(MAX_SPEED, car.speed + car.acceleration * dt);
-    else car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
+    let speedLimit = MAX_SPEED;
+    let shouldBrake = false;
 
-    let nextPosition = car.position - car.speed * dt;
     if (ahead) {
-      const minimumGap = mustStopForRedLight(state.phase, car.position, STOP_POSITION)
-        ? restingGap
-        : Math.max(1.2, car.safety * .55);
-      nextPosition = Math.max(nextPosition, ahead.position + CAR_LENGTH + minimumGap);
+      const availableGap = gap - restingGap;
+      shouldBrake = shouldBrakeForTarget(
+        availableGap,
+        current.speed,
+        ahead.speed,
+        BRAKE_RATE,
+        car.reaction,
+      );
+      if (ahead.speed < STOPPED_SPEED && gap <= car.safety) speedLimit = CREEP_SPEED;
     }
-    if (mustStopForRedLight(state.phase, car.position, STOP_POSITION)) nextPosition = Math.max(nextPosition, CAR_LENGTH / 2 + .5);
+
+    if (!mayCrossSignal && current.position > STOP_POSITION) {
+      // A driver who intends to stop may coast until braking is necessary, but
+      // must not accelerate merely because the car ahead entered on orange.
+      speedLimit = Math.min(speedLimit, current.speed);
+      const distanceToLine = current.position - (CAR_LENGTH / 2 + .5);
+      shouldBrake ||= shouldBrakeForTarget(
+        distanceToLine,
+        current.speed,
+        0,
+        BRAKE_RATE,
+        car.reaction,
+      );
+    }
+
+    if (!reacting && current.speed < STOPPED_SPEED) speedLimit = 0;
+    if (!mayCrossSignal && !ahead && current.speed < STOPPED_SPEED) speedLimit = 0;
+    car.braking = shouldBrake || current.speed > speedLimit + STOPPED_SPEED;
+    if (car.braking) car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
+    else if (allowed || current.speed >= STOPPED_SPEED) {
+      car.speed = Math.min(speedLimit, current.speed + car.acceleration * dt);
+    } else car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
+
+    let nextPosition = current.position - car.speed * dt;
+    if (ahead) {
+      // Zero is the only hard minimum. Resting distance is reached through
+      // predictive braking and creeping, never by moving a car backwards.
+      const collisionBoundary = ahead.position + CAR_LENGTH;
+      if (nextPosition < collisionBoundary) {
+        nextPosition = collisionBoundary;
+        car.speed = Math.min(car.speed, ahead.speed);
+      }
+    }
+    if (!mayCrossSignal && current.position > STOP_POSITION) {
+      const lineBoundary = CAR_LENGTH / 2 + .5;
+      if (nextPosition < lineBoundary) {
+        nextPosition = lineBoundary;
+        car.speed = 0;
+      }
+    }
     car.position = nextPosition;
+
+    if (car.committedToCross && car.position <= STOP_POSITION) car.committedToCross = false;
 
     if (!car.crossed && car.position < -CAR_LENGTH / 2) { car.crossed = true; lane.crossed++; }
   }
@@ -151,6 +192,19 @@ function updateLane(lane, dt) {
   for (const car of lane.cars.filter(c => c.position < ROAD_MIN - 15)) car.node.remove();
   lane.cars = lane.cars.filter(c => c.position >= ROAD_MIN - 15);
 
+}
+
+function beginOrangePhase() {
+  state.phase = 'orange';
+  state.phaseRemaining += ORANGE_DURATION;
+  for (const lane of state.lanes) for (const car of lane.cars) {
+    car.committedToCross = car.position > STOP_POSITION && cannotStopBeforeLine(
+      car.position - (CAR_LENGTH / 2 + .5),
+      car.speed,
+      BRAKE_RATE,
+      car.reaction,
+    );
+  }
 }
 
 function addArrivingCars() {
@@ -169,8 +223,11 @@ function tick(timestamp) {
   state.lastFrame = timestamp; state.elapsed += dt; state.phaseRemaining -= dt;
   state.arrivalClock += dt;
   if (state.phaseRemaining <= 0) {
-    state.phase = state.phase === 'red' ? 'green' : 'red';
-    state.phaseRemaining += settings.phase;
+    if (state.phase === 'green') beginOrangePhase();
+    else {
+      state.phase = state.phase === 'orange' ? 'red' : 'green';
+      state.phaseRemaining += settings.phase;
+    }
   }
   state.lanes.forEach(lane => updateLane(lane, dt));
   while (state.arrivalClock >= ARRIVAL_INTERVAL) {
@@ -191,7 +248,6 @@ function render() {
 }
 
 function updateUI() {
-  const green = state.phase === 'green';
   el('trafficLight').className = `traffic-light ${state.phase}`;
   el('trafficLight').setAttribute('aria-label', `Traffic light is ${state.phase}`);
   el('signalMini').className = `signal-mini ${state.phase}`;
