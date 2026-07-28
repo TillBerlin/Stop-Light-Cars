@@ -5,7 +5,7 @@ An interactive, deterministic traffic simulation showing how two queues respond 
 ## Features
 
 - Ten 5-meter cars initially queue in each lane.
-- Cars react to the green light and available safety distance, accelerate smoothly, and brake to avoid the car ahead.
+- Cars react to the green light and available safety distance, accelerate smoothly, and brake to avoid the car ahead. On red, queued cars continue closing available space until they reach their lane's resting gap.
 - Equal, configurable red and green phases repeat automatically.
 - New cars arrive from the right during red phases.
 - Live crossed-car counts and phase countdown.
@@ -53,4 +53,4 @@ Because asset links are relative, the site works both at a user/organization roo
 
 ## Model assumptions
 
-The simulation uses a simplified one-dimensional car-following model. All drivers behave identically. A stopped driver begins reacting only when the signal is green and the clear distance ahead meets the selected safety distance. Moving cars accelerate up to 50 km/h and apply a fixed braking rate when approaching a red light or another car. This is an educational visualization rather than a traffic-engineering predictor.
+The simulation uses a simplified one-dimensional car-following model. All drivers behave identically. A stopped driver begins reacting when the signal is green and the clear distance ahead meets the selected safety distance, or during red when a queue gap is larger than that lane's resting gap. Moving cars accelerate up to 50 km/h and apply a fixed braking rate when approaching a red light or another car. This is an educational visualization rather than a traffic-engineering predictor.
