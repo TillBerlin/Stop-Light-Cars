@@ -1,4 +1,8 @@
-import { distanceToCarAhead, hasStartingClearance } from './car-physics.js';
+import {
+  distanceToCarAhead,
+  hasStartingClearance,
+  mustStopForRedLight,
+} from './car-physics.js';
 
 const CAR_LENGTH = 5;
 const STOP_POSITION = 0;
@@ -71,9 +75,17 @@ function updateLane(lane, dt) {
   for (let i = 0; i < lane.cars.length; i++) {
     const car = lane.cars[i];
     const ahead = lane.cars[i - 1];
+
+    // A red phase freezes approaching traffic in place. Cars that have already
+    // crossed the stop line continue clearing the intersection.
+    if (mustStopForRedLight(state.phase, car.position, STOP_POSITION)) {
+      car.braking = car.speed > .05;
+      car.speed = 0;
+      car.reactionClock = 0;
+      continue;
+    }
+
     const gap = distanceToCarAhead(car, ahead, CAR_LENGTH);
-    const stopGap = car.position - STOP_POSITION - CAR_LENGTH / 2;
-    const blockedByLight = state.phase === 'red' && car.position > STOP_POSITION && stopGap < desiredGap(car.speed) + 4;
     const hasSpace = hasStartingClearance(gap, settings.safety);
     const allowed = state.phase === 'green' && hasSpace;
 
@@ -82,7 +94,7 @@ function updateLane(lane, dt) {
 
     const reacting = car.reactionClock >= settings.reaction;
     const tooClose = gap < desiredGap(car.speed);
-    car.braking = tooClose || blockedByLight;
+    car.braking = tooClose;
     if (car.braking) car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
     else if ((reacting || car.speed > .05) && (state.phase === 'green' || car.position < STOP_POSITION)) car.speed = Math.min(MAX_SPEED, car.speed + settings.acceleration * dt);
     else car.speed = Math.max(0, car.speed - BRAKE_RATE * dt);
