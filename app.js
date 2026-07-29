@@ -1,7 +1,6 @@
 import {
   availableStartingBuffer,
   canCloseGapOnRed,
-  canReleaseFromQueue,
   cannotStopBeforeLine,
   distanceToCarAhead,
   followsThreeStripeRule,
@@ -13,6 +12,7 @@ import {
   restingDistanceForPosition,
   shouldBrakeForTarget,
   shouldEnterQueueMode,
+  shouldTriggerStartup,
 } from './car-physics.js';
 
 const CAR_LENGTH_MIN = 3.8;
@@ -120,7 +120,8 @@ function createCar(position, laneIndex, profileIndex) {
   node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
-    id: nextCarId++, position, length: profile.length, speed: 0, startupClock: 0, crossed: false, braking: false,
+    id: nextCarId++, position, length: profile.length, speed: 0,
+    startupTriggered: false, startupClock: 0, crossed: false, braking: false,
     queueMode: false, releasedFromQueue: false,
     committedToCross: false, node,
     startup: randomBetween(settings.startupMin, settings.startupMax),
@@ -184,14 +185,19 @@ function updateLane(lane, dt) {
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
     const signalRequiresStop = !mayCrossSignal;
-    if (shouldEnterQueueMode(
+    const enteringQueue = shouldEnterQueueMode(
       current.position,
       STOP_POSITION,
       STRIPE_ZONE_END,
       signalRequiresStop,
       Boolean(ahead?.queueMode),
       car.releasedFromQueue,
-    )) {
+    );
+    if (enteringQueue) {
+      if (!car.queueMode) {
+        car.startupTriggered = false;
+        car.startupClock = 0;
+      }
       car.queueMode = true;
       car.releasedFromQueue = false;
     }
@@ -208,21 +214,27 @@ function updateLane(lane, dt) {
       standstillGap,
     );
     const leaderHasStarted = ahead && (!ahead.queueMode || ahead.speed >= STOPPED_SPEED);
-    // Extra space lets a follower react independently of its leader on green.
-    const canBeginStartup = mayCrossSignal && (!ahead || leaderHasStarted || hasClearance);
-    const allowed = (mayCrossSignal && (!ahead || leaderHasStarted || hasClearance)) || mayCreep || closingGapOnRed;
-
-    if (current.speed < STOPPED_SPEED && canBeginStartup) car.startupClock += dt;
-    else if (!canBeginStartup && current.speed < STOPPED_SPEED) car.startupClock = 0;
-
-    // Clearance removes the dependency on the leader, not the reaction delay.
-    const readyToStart = car.startupClock >= car.startup;
-    if (car.queueMode && mayCrossSignal && canReleaseFromQueue(
-      readyToStart,
+    // Clearance determines when the reaction timer begins; it never bypasses
+    // the car's own start-up time.
+    if (car.queueMode && current.speed < STOPPED_SPEED && shouldTriggerStartup(
+      state.phase,
+      car.startupTriggered,
       Boolean(ahead),
       Boolean(leaderHasStarted),
       hasClearance,
     )) {
+      car.startupTriggered = true;
+      car.startupClock = 0;
+    }
+    const allowed = (mayCrossSignal && (
+      car.startupTriggered || !ahead || leaderHasStarted || hasClearance
+    )) || mayCreep || closingGapOnRed;
+
+    if (car.startupTriggered && current.speed < STOPPED_SPEED) car.startupClock += dt;
+
+    // Clearance removes the dependency on the leader, not the reaction delay.
+    const readyToStart = car.startupClock >= car.startup;
+    if (car.queueMode && mayCrossSignal && readyToStart) {
       car.queueMode = false;
       car.releasedFromQueue = true;
     }
@@ -325,6 +337,17 @@ function beginOrangePhase() {
   }
 }
 
+function beginRedPhase() {
+  state.phase = 'red';
+  state.phaseRemaining += settings.phase;
+  for (const lane of state.lanes) for (const car of lane.cars) {
+    if (car.position > STOP_POSITION) {
+      car.startupTriggered = false;
+      car.startupClock = 0;
+    }
+  }
+}
+
 function addArrivingCars() {
   for (const lane of state.lanes) {
     const furthestPosition = lane.cars.reduce((furthest, car) => Math.max(furthest, car.position), ROAD_MIN);
@@ -342,8 +365,9 @@ function tick(timestamp) {
   state.arrivalClock += dt;
   if (state.phaseRemaining <= 0) {
     if (state.phase === 'green') beginOrangePhase();
+    else if (state.phase === 'orange') beginRedPhase();
     else {
-      state.phase = state.phase === 'orange' ? 'red' : 'green';
+      state.phase = 'green';
       state.phaseRemaining += settings.phase;
     }
   }

@@ -18,6 +18,7 @@ import {
   restingDistanceForPosition,
   shouldBrakeForTarget,
   shouldEnterQueueMode,
+  shouldTriggerStartup,
 } from './car-physics.js';
 
 test('measures the clear distance in the direction cars travel', () => {
@@ -29,13 +30,22 @@ test('measures the clear distance in the direction cars travel', () => {
   assert.equal(distanceToCarAhead(car, carAhead, 4, 6), 7);
 });
 
-test('starts immediately only when a green-light gap meets the clearing distance', () => {
+test('starting clearance becomes available only when a green-light gap meets the clearing distance', () => {
   assert.equal(hasStartingClearance('green', 6.1, 6), true);
   assert.equal(hasStartingClearance('green', 6, 6), true);
   assert.equal(hasStartingClearance('green', 5.9, 6), false);
   assert.equal(hasStartingClearance('green', Infinity, 6), true);
   assert.equal(hasStartingClearance('red', 6.1, 6), false);
   assert.equal(hasStartingClearance('orange', 6.1, 6), false);
+});
+
+test('triggers each startup timer once its leader dependency is cleared', () => {
+  assert.equal(shouldTriggerStartup('green', false, false, false, false), true);
+  assert.equal(shouldTriggerStartup('green', false, true, false, true), true);
+  assert.equal(shouldTriggerStartup('green', false, true, true, false), true);
+  assert.equal(shouldTriggerStartup('green', false, true, false, false), false);
+  assert.equal(shouldTriggerStartup('red', false, false, false, false), false);
+  assert.equal(shouldTriggerStartup('green', true, false, false, false), false);
 });
 
 test('starting clearance uses only space above the common base gap', () => {
