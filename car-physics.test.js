@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  availableStartingBuffer,
   canCloseGapOnRed,
   cannotStopBeforeLine,
   distanceToCarAhead,
@@ -15,6 +16,7 @@ import {
   relativeStoppingDistance,
   restingDistanceForPosition,
   shouldBrakeForTarget,
+  shouldEnterQueueMode,
 } from './car-physics.js';
 
 test('measures the clear distance in the direction cars travel', () => {
@@ -26,13 +28,28 @@ test('measures the clear distance in the direction cars travel', () => {
   assert.equal(distanceToCarAhead(car, carAhead, 4, 6), 7);
 });
 
-test('starts immediately only for a green-light gap bigger than the clearing distance', () => {
+test('starts immediately only when a green-light gap meets the clearing distance', () => {
   assert.equal(hasStartingClearance('green', 6.1, 6), true);
-  assert.equal(hasStartingClearance('green', 6, 6), false);
+  assert.equal(hasStartingClearance('green', 6, 6), true);
   assert.equal(hasStartingClearance('green', 5.9, 6), false);
   assert.equal(hasStartingClearance('green', Infinity, 6), true);
   assert.equal(hasStartingClearance('red', 6.1, 6), false);
   assert.equal(hasStartingClearance('orange', 6.1, 6), false);
+});
+
+test('starting clearance uses only space above the common base gap', () => {
+  assert.equal(availableStartingBuffer(6, 2), 4);
+  assert.equal(availableStartingBuffer(1, 2), 0);
+  assert.equal(hasStartingClearance('green', availableStartingBuffer(6.1, 2), 4), true);
+  assert.equal(hasStartingClearance('green', availableStartingBuffer(6, 2), 4), true);
+});
+
+test('queue entry depends on an expected stop, not speed', () => {
+  assert.equal(shouldEnterQueueMode(40, 0, 50, true, false), true);
+  assert.equal(shouldEnterQueueMode(40, 0, 50, false, true), true);
+  assert.equal(shouldEnterQueueMode(40, 0, 50, false, true, true), false);
+  assert.equal(shouldEnterQueueMode(51, 0, 50, true, true), false);
+  assert.equal(shouldEnterQueueMode(-1, 0, 50, true, true), false);
 });
 
 test('identifies cars approaching a red stop line', () => {

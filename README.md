@@ -5,7 +5,7 @@ An interactive traffic simulation showing how two queues respond to one traffic 
 ## Features
 
 - Ten 5-meter cars initially queue in each lane.
-- A stopped car starts after the car ahead starts plus its own start-up time. On green, a gap larger than its clearing distance lets it start immediately, so widely spaced queues can move together.
+- A queued car starts after the car ahead starts plus its own start-up time. On green, usable space above the common normal base gap can let it start immediately, so widely spaced queues can move together.
 - Cars accelerate smoothly and brake to avoid the car ahead. On red, queued cars continue closing available space until they reach their lane's resting gap.
 - Equal, configurable red and green phases repeat automatically, separated by a one-second orange phase. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
 - A new car arrives in each lane at a configurable rate whenever there is room at that lane's entrance. The default is one car every two seconds, and the arrival-rate slider ranges from one car every five seconds to two cars per second.
@@ -54,4 +54,4 @@ Because asset links are relative, the site works both at a user/organization roo
 
 ## Model assumptions
 
-The simulation uses a simplified one-dimensional car-following model. Cars preserve a speed-dependent safety distance, may creep toward a stationary queue, and use zero meters only as a hard non-overlap boundary. An orange-light decision is made independently for every car, so a follower stops whenever it can do so safely even if the car ahead proceeds. Moving cars accelerate up to 50 km/h, brake predictively for signals and slower traffic, and brake harder when they get within four meters of a considerably slower car. This is an educational visualization rather than a traffic-engineering predictor.
+The simulation uses a simplified one-dimensional car-following model. Queue mode is persistent while a car expects to stop within 50 m of the line and uses the lane-specific standstill gap. It ends when the car is released on green. Outside queue mode, every driver uses Lane A's normal gap as the common base plus a speed-dependent safety distance, regardless of lane or stripe compliance. Cars may creep toward a stationary queue and use zero meters only as a hard non-overlap boundary. An orange-light decision is made independently for every car, so a follower stops whenever it can do so safely even if the car ahead proceeds. Moving cars accelerate up to the selected speed limit, brake predictively for signals and slower traffic, and brake harder when they get within four meters of a considerably slower car. This is an educational visualization rather than a traffic-engineering predictor.

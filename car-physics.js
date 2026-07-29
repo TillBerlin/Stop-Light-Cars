@@ -3,7 +3,24 @@ export function distanceToCarAhead(car, carAhead, carLength, carAheadLength = ca
 }
 
 export function hasStartingClearance(phase, distance, clearingDistance) {
-  return phase === 'green' && distance > clearingDistance;
+  return phase === 'green' && distance >= clearingDistance;
+}
+
+export function availableStartingBuffer(gap, normalBaseGap) {
+  return Math.max(0, gap - normalBaseGap);
+}
+
+export function shouldEnterQueueMode(
+  position,
+  stopPosition,
+  queueZoneEnd,
+  signalRequiresStop,
+  leaderIsQueued,
+  releasedFromCurrentQueue = false,
+) {
+  const inQueueZone = position > stopPosition && position <= queueZoneEnd;
+  return inQueueZone
+    && (signalRequiresStop || (leaderIsQueued && !releasedFromCurrentQueue));
 }
 
 export function relativeStoppingDistance(followerSpeed, leaderSpeed, brakingRate, responseTime = 0) {
@@ -27,7 +44,7 @@ export function shouldBrakeForTarget(
 }
 
 export function movingSafetyDistance(
-  restingDistance,
+  baseSafetyDistance,
   followerSpeed,
   leaderSpeed,
   brakingRate,
@@ -38,7 +55,7 @@ export function movingSafetyDistance(
     0,
     (followerSpeed ** 2 - leaderSpeed ** 2) / (2 * brakingRate),
   );
-  return restingDistance + reactionDistance + speedDifferenceDistance;
+  return baseSafetyDistance + reactionDistance + speedDifferenceDistance;
 }
 
 export function needsEmergencyBraking(
