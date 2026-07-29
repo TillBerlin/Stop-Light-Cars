@@ -41,6 +41,7 @@ const controlDefinitions = [
 
 const el = id => document.getElementById(id);
 const controls = el('controls');
+const mobileView = { overview: false };
 for (const def of controlDefinitions) {
   const wrapper = document.createElement('div');
   wrapper.className = `slider-control ${def.range ? 'range-control' : ''} ${def.className || ''}`;
@@ -255,13 +256,34 @@ function tick(timestamp) {
 }
 
 function render() {
+  const isMobile = window.matchMedia('(max-width: 600px)').matches;
+  const overview = !isMobile || mobileView.overview;
+  const roadWidth = el('road').clientWidth;
+  const stopFraction = isMobile && !overview ? .9 : .82;
+  const visibleApproach = isMobile && !overview ? 55 : ROAD_MAX;
+  const pixelsPerMeter = roadWidth * stopFraction / visibleApproach;
+  const carWidth = CAR_LENGTH * pixelsPerMeter;
+  el('road').style.setProperty('--stop-x', `${stopFraction * 100}%`);
+  el('road').classList.toggle('compact-cars', carWidth < 24);
   for (const lane of state.lanes) for (const car of lane.cars) {
-    const x = 82 - (car.position / (ROAD_MAX - ROAD_MIN)) * 82;
+    const x = (stopFraction * roadWidth - car.position * pixelsPerMeter) / roadWidth * 100;
     car.node.style.left = `${x}%`;
     car.node.style.top = lane.index === 0 ? '51%' : '49%';
+    car.node.style.setProperty('--car-width', `${carWidth}px`);
+    car.node.style.setProperty('--car-height', `${carWidth * 24 / 42}px`);
     car.node.classList.toggle('braking', car.braking && car.speed > .1);
     car.node.style.opacity = x < -5 || x > 103 ? '0' : '1';
   }
+}
+
+function updateViewMode() {
+  const overview = mobileView.overview;
+  el('roadWrap').classList.toggle('queue-view', !overview);
+  el('viewToggle').setAttribute('aria-pressed', String(!overview));
+  el('viewNote').textContent = overview
+    ? 'Overview · showing the full road'
+    : 'Queue detail · showing the area nearest the stop line';
+  render();
 }
 
 function updateUI() {
@@ -291,4 +313,9 @@ el('restartBtn').addEventListener('click', () => {
   updateUI();
   if (!animationWasRunning) requestAnimationFrame(tick);
 });
+el('viewToggle').addEventListener('click', () => {
+  mobileView.overview = !mobileView.overview;
+  updateViewMode();
+});
+window.addEventListener('resize', render);
 reset();
