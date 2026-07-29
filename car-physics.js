@@ -53,3 +53,16 @@ export function randomBetween(minimum, maximum, random = Math.random) {
 export function followsThreeStripeRule(compliancePercent, random = Math.random) {
   return random() * 100 < compliancePercent;
 }
+
+export function restingDistanceForPosition(
+  position,
+  followsStripeRule,
+  stripeStart,
+  stripeEnd,
+  normalDistance,
+  stripeDistance,
+) {
+  return followsStripeRule && position >= stripeStart && position <= stripeEnd
+    ? stripeDistance
+    : normalDistance;
+}
