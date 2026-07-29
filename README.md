@@ -8,7 +8,7 @@ An interactive traffic simulation showing how two queues respond to one traffic 
 - A stopped car starts after the car ahead starts plus its own start-up time. On green, a gap larger than its clearing distance lets it start immediately, so widely spaced queues can move together.
 - Cars accelerate smoothly and brake to avoid the car ahead. On red, queued cars continue closing available space until they reach their lane's resting gap.
 - Equal, configurable red and green phases repeat automatically, separated by a one-second orange phase. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
-- A new car arrives in each lane every two seconds, regardless of the signal phase, whenever there is room at that lane's entrance.
+- A new car arrives in each lane at a configurable rate whenever there is room at that lane's entrance. The default is one car every two seconds, and the arrival-rate slider ranges from one car every five seconds to two cars per second.
 - Live crossed-car counts and phase countdown.
 - Play, pause, and restart controls.
 - Responsive, accessible static application built with Vite.

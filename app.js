@@ -18,7 +18,6 @@ const INITIAL_CARS = 10;
 const MAX_SPEED = 13.9;
 const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
-const ARRIVAL_INTERVAL = 2;
 const INITIAL_RED_DURATION = 1;
 const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
@@ -28,13 +27,14 @@ const settings = {
   startupMin: 1, startupMax: 2,
   accelerationMin: 1.5, accelerationMax: 2.5,
   clearingMin: 4, clearingMax: 4,
-  phase: 12, topGap: 2, bottomGap: 5,
+  phase: 12, arrivalRate: .5, topGap: 2, bottomGap: 5,
 };
 const controlDefinitions = [
   { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
   { key: 'acceleration', label: 'Acceleration', min: .5, max: 4, step: .1, unit: 'm/s²', note: 'Uniform range per car', range: true },
   { key: 'clearing', label: 'Clearing distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
   { key: 'phase', label: 'Green / red time', min: 5, max: 30, step: 1, unit: 's', note: 'Equal phase duration' },
+  { key: 'arrivalRate', label: 'Arrival rate', min: .2, max: 2, step: .1, unit: 'cars/s', note: 'New cars per lane' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
   { key: 'bottomGap', label: 'Bottom resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane B only', className: 'bottom' },
 ];
@@ -248,9 +248,10 @@ function tick(timestamp) {
     }
   }
   state.lanes.forEach(lane => updateLane(lane, dt));
-  while (state.arrivalClock >= ARRIVAL_INTERVAL) {
+  const arrivalInterval = 1 / settings.arrivalRate;
+  while (state.arrivalClock >= arrivalInterval) {
     addArrivingCars();
-    state.arrivalClock -= ARRIVAL_INTERVAL;
+    state.arrivalClock -= arrivalInterval;
   }
   render(); updateUI(); requestAnimationFrame(tick);
 }
