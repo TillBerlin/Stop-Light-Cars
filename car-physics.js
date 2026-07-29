@@ -1,5 +1,5 @@
-export function distanceToCarAhead(car, carAhead, carLength) {
-  return carAhead ? car.position - carAhead.position - carLength : Infinity;
+export function distanceToCarAhead(car, carAhead, carLength, carAheadLength = carLength) {
+  return carAhead ? car.position - carAhead.position - (carLength + carAheadLength) / 2 : Infinity;
 }
 
 export function hasStartingClearance(phase, distance, clearingDistance) {
