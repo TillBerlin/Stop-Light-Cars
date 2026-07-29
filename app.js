@@ -1,4 +1,5 @@
 import {
+  availableStartingBuffer,
   canCloseGapOnRed,
   cannotStopBeforeLine,
   distanceToCarAhead,
@@ -10,6 +11,7 @@ import {
   randomBetween,
   restingDistanceForPosition,
   shouldBrakeForTarget,
+  shouldEnterQueueMode,
 } from './car-physics.js';
 
 const CAR_LENGTH_MIN = 3.8;
@@ -118,6 +120,7 @@ function createCar(position, laneIndex, profileIndex) {
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
     id: nextCarId++, position, length: profile.length, speed: 0, startupClock: 0, crossed: false, braking: false,
+    queueMode: false, releasedFromQueue: false,
     committedToCross: false, node,
     startup: randomBetween(settings.startupMin, settings.startupMax),
     acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
@@ -145,6 +148,7 @@ function fillInitialLane(laneIndex, gap) {
       ? normalPosition
       : cars[i - 1].position + cars[i - 1].length / 2 + restingGap + length / 2;
     car.position = position;
+    car.queueMode = true;
     cars.push(car);
   }
   return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS };
@@ -160,7 +164,12 @@ function reset() {
 
 function updateLane(lane, dt) {
   lane.cars.sort((a, b) => a.position - b.position);
-  const snapshot = lane.cars.map(car => ({ position: car.position, speed: car.speed }));
+  const snapshot = lane.cars.map(car => ({
+    position: car.position,
+    speed: car.speed,
+    queueMode: car.queueMode,
+    releasedFromQueue: car.releasedFromQueue,
+  }));
   for (let i = 0; i < lane.cars.length; i++) {
     const car = lane.cars[i];
     const current = snapshot[i];
@@ -168,21 +177,36 @@ function updateLane(lane, dt) {
 
     const aheadCar = lane.cars[i - 1];
     const gap = distanceToCarAhead(current, ahead, car.length, aheadCar?.length);
-    const hasClearance = hasStartingClearance(state.phase, gap, car.clearing);
-    const restingGap = lane.index === 1
+    const standstillGap = lane.index === 1
       ? restingDistanceForPosition(current.position, car.followsThreeStripeRule, STRIPE_ZONE_START, STRIPE_ZONE_END, settings.topGap, settings.bottomGap)
       : settings.topGap;
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
-    const mayCreep = ahead && gap > restingGap && ahead.speed < STOPPED_SPEED;
+    const signalRequiresStop = !mayCrossSignal;
+    if (shouldEnterQueueMode(
+      current.position,
+      STOP_POSITION,
+      STRIPE_ZONE_END,
+      signalRequiresStop,
+      Boolean(ahead?.queueMode),
+      car.releasedFromQueue,
+    )) {
+      car.queueMode = true;
+      car.releasedFromQueue = false;
+    }
+
+    const startingBuffer = availableStartingBuffer(gap, settings.topGap);
+    const hasClearance = Boolean(ahead)
+      && hasStartingClearance(state.phase, startingBuffer, car.clearing);
+    const mayCreep = car.queueMode && ahead && gap > standstillGap && ahead.speed < STOPPED_SPEED;
     const closingGapOnRed = canCloseGapOnRed(
       state.phase,
       current.position,
       STOP_POSITION,
       gap,
-      restingGap,
+      standstillGap,
     );
-    const leaderHasStarted = ahead && ahead.speed >= STOPPED_SPEED;
+    const leaderHasStarted = ahead && (!ahead.queueMode || ahead.speed >= STOPPED_SPEED);
     const canBeginStartup = mayCrossSignal && (!ahead || leaderHasStarted);
     const allowed = (mayCrossSignal && (hasClearance || !ahead || leaderHasStarted)) || mayCreep || closingGapOnRed;
 
@@ -192,19 +216,32 @@ function updateLane(lane, dt) {
     // A green-light clearing gap bypasses the normal start-up delay. Otherwise,
     // the delay begins when the signal releases the lead car or its leader moves.
     const readyToStart = hasClearance || car.startupClock >= car.startup;
+    if (car.queueMode && mayCrossSignal && readyToStart && (!ahead || hasClearance || leaderHasStarted)) {
+      car.queueMode = false;
+      car.releasedFromQueue = true;
+    }
     let speedLimit = settings.speedLimit / 3.6;
     let shouldBrake = false;
     let brakingRate = BRAKE_RATE;
 
     if (ahead) {
       const safetyDistance = movingSafetyDistance(
-        restingGap,
+        settings.topGap,
         current.speed,
         ahead.speed,
         BRAKE_RATE,
         DRIVER_RESPONSE_TIME,
       );
       shouldBrake = gap <= safetyDistance;
+      if (car.queueMode) {
+        shouldBrake ||= shouldBrakeForTarget(
+          gap - standstillGap,
+          current.speed,
+          ahead.speed,
+          BRAKE_RATE,
+          DRIVER_RESPONSE_TIME,
+        );
+      }
       if (needsEmergencyBraking(
         gap,
         current.speed,
@@ -256,6 +293,8 @@ function updateLane(lane, dt) {
       }
     }
     car.position = nextPosition;
+
+    if (car.position > STRIPE_ZONE_END) car.releasedFromQueue = false;
 
     if (car.committedToCross && car.position <= STOP_POSITION) car.committedToCross = false;
 
