@@ -21,13 +21,15 @@ const INITIAL_RED_DURATION = 1;
 const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
+const STRIPE_SPACING = 2;
+const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
 const settings = {
   startupMin: 1, startupMax: 2,
   accelerationMin: 1.5, accelerationMax: 2.5,
   clearingMin: 4, clearingMax: 4,
-  phase: 12, arrivalRate: .5, speedLimit: 30, topGap: 2, bottomGap: 5,
+  phase: 12, arrivalRate: .5, speedLimit: 30, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
 };
 const controlDefinitions = [
   { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
@@ -37,7 +39,6 @@ const controlDefinitions = [
   { key: 'arrivalRate', label: 'Arrival rate', min: .2, max: 2, step: .1, unit: 'cars/s', note: 'New cars per lane' },
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
-  { key: 'bottomGap', label: 'Bottom resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane B only', className: 'bottom' },
 ];
 
 const el = id => document.getElementById(id);
@@ -72,7 +73,6 @@ for (const def of controlDefinitions) {
     settings[def.key] = Number(input.value);
     output.textContent = `${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}`;
     if (def.key === 'topGap') el('topGapMetric').textContent = `${settings.topGap.toFixed(1)}m`;
-    if (def.key === 'bottomGap') el('bottomGapMetric').textContent = `${settings.bottomGap.toFixed(1)}m`;
     if (def.key === 'phase' && !state.running) {
       state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.phase;
     }
@@ -285,6 +285,7 @@ function render() {
   const visibleApproach = isMobile && !overview ? 55 : ROAD_MAX;
   const pixelsPerMeter = roadWidth * stopFraction / visibleApproach;
   el('road').style.setProperty('--stop-x', `${stopFraction * 100}%`);
+  renderStripes(stopFraction, roadWidth, pixelsPerMeter);
   el('road').classList.toggle('compact-cars', CAR_LENGTH_MIN * pixelsPerMeter < 24);
   for (const lane of state.lanes) for (const car of lane.cars) {
     const carWidth = car.length * pixelsPerMeter;
@@ -296,6 +297,24 @@ function render() {
     car.node.classList.toggle('braking', car.braking && car.speed > .1);
     car.node.style.opacity = x < -5 || x > 103 ? '0' : '1';
   }
+}
+
+function renderStripes(stopFraction, roadWidth, pixelsPerMeter) {
+  const stripeField = el('stripeField');
+  const stripeCount = Math.ceil(ROAD_MAX / STRIPE_SPACING);
+  if (stripeField.children.length !== stripeCount) {
+    stripeField.replaceChildren(...Array.from({ length: stripeCount }, () => {
+      const stripe = document.createElement('i');
+      stripe.className = 'distance-stripe';
+      return stripe;
+    }));
+  }
+  [...stripeField.children].forEach((stripe, index) => {
+    const distance = (index + 1) * STRIPE_SPACING;
+    const x = (stopFraction * roadWidth - distance * pixelsPerMeter) / roadWidth * 100;
+    stripe.style.left = `${x}%`;
+    stripe.hidden = x < 0 || x > 100;
+  });
 }
 
 function updateViewMode() {
