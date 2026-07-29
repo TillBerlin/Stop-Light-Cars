@@ -9,6 +9,8 @@ import {
   hasStartingClearance,
   hasRoomForArrival,
   mustStopForRedLight,
+  movingSafetyDistance,
+  needsEmergencyBraking,
   randomBetween,
   relativeStoppingDistance,
   restingDistanceForPosition,
@@ -90,6 +92,18 @@ test('calculates stopping distance from relative rather than absolute speed', ()
 test('brakes early enough to preserve the requested resting distance', () => {
   assert.equal(shouldBrakeForTarget(7.5, 10, 5, 5, 1), true);
   assert.equal(shouldBrakeForTarget(7.6, 10, 5, 5, 1), false);
+});
+
+test('increases moving safety distance with speed and closing speed', () => {
+  assert.equal(movingSafetyDistance(2, 10, 10, 5, 1), 12);
+  assert.equal(movingSafetyDistance(2, 10, 5, 5, 1), 19.5);
+  assert.equal(movingSafetyDistance(2, 5, 10, 5, 1), 7);
+});
+
+test('requires emergency braking only when close and considerably faster', () => {
+  assert.equal(needsEmergencyBraking(4, 10, 7, 4, 3), true);
+  assert.equal(needsEmergencyBraking(4.1, 10, 7, 4, 3), false);
+  assert.equal(needsEmergencyBraking(4, 10, 7.1, 4, 3), false);
 });
 
 test('makes each orange-light stopping decision from its own state', () => {
