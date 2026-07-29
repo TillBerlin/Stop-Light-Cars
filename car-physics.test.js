@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   availableStartingBuffer,
   canCloseGapOnRed,
+  canReleaseFromQueue,
   cannotStopBeforeLine,
   distanceToCarAhead,
   followsThreeStripeRule,
@@ -42,6 +43,16 @@ test('starting clearance uses only space above the common base gap', () => {
   assert.equal(availableStartingBuffer(1, 2), 0);
   assert.equal(hasStartingClearance('green', availableStartingBuffer(6.1, 2), 4), true);
   assert.equal(hasStartingClearance('green', availableStartingBuffer(6, 2), 4), true);
+});
+
+test('queue release always requires reaction time but clearance can substitute for leader movement', () => {
+  assert.equal(canReleaseFromQueue(true, false, false, false), true);
+  assert.equal(canReleaseFromQueue(true, true, true, false), true);
+  assert.equal(canReleaseFromQueue(true, true, false, true), true);
+  assert.equal(canReleaseFromQueue(true, true, false, false), false);
+  assert.equal(canReleaseFromQueue(false, false, false, false), false);
+  assert.equal(canReleaseFromQueue(false, true, true, false), false);
+  assert.equal(canReleaseFromQueue(false, true, false, true), false);
 });
 
 test('queue entry depends on an expected stop, not speed', () => {
