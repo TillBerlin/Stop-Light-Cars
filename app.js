@@ -23,6 +23,8 @@ const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 const STRIPE_SPACING = 2;
+const STRIPE_FIELD_LENGTH = 50;
+const DISTANCE_MARKER_SPACING = 10;
 const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
@@ -296,7 +298,7 @@ function render() {
   const visibleApproach = isMobile && !overview ? 55 : ROAD_MAX;
   const pixelsPerMeter = roadWidth * stopFraction / visibleApproach;
   el('road').style.setProperty('--stop-x', `${stopFraction * 100}%`);
-  renderStripes(stopFraction, roadWidth, pixelsPerMeter);
+  renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter);
   el('road').classList.toggle('compact-cars', CAR_LENGTH_MIN * pixelsPerMeter < 24);
   for (const lane of state.lanes) for (const car of lane.cars) {
     const carWidth = car.length * pixelsPerMeter;
@@ -310,9 +312,13 @@ function render() {
   }
 }
 
-function renderStripes(stopFraction, roadWidth, pixelsPerMeter) {
+function positionForDistance(distance, stopFraction, roadWidth, pixelsPerMeter) {
+  return (stopFraction * roadWidth - distance * pixelsPerMeter) / roadWidth * 100;
+}
+
+function renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter) {
   const stripeField = el('stripeField');
-  const stripeCount = Math.ceil(ROAD_MAX / STRIPE_SPACING);
+  const stripeCount = STRIPE_FIELD_LENGTH / STRIPE_SPACING;
   if (stripeField.children.length !== stripeCount) {
     stripeField.replaceChildren(...Array.from({ length: stripeCount }, () => {
       const stripe = document.createElement('i');
@@ -322,9 +328,27 @@ function renderStripes(stopFraction, roadWidth, pixelsPerMeter) {
   }
   [...stripeField.children].forEach((stripe, index) => {
     const distance = (index + 1) * STRIPE_SPACING;
-    const x = (stopFraction * roadWidth - distance * pixelsPerMeter) / roadWidth * 100;
+    const x = positionForDistance(distance, stopFraction, roadWidth, pixelsPerMeter);
     stripe.style.left = `${x}%`;
     stripe.hidden = x < 0 || x > 100;
+  });
+
+  const distanceField = el('roadDistanceField');
+  const markerCount = ROAD_MAX / DISTANCE_MARKER_SPACING;
+  if (distanceField.children.length !== markerCount) {
+    distanceField.replaceChildren(...Array.from({ length: markerCount }, (_, index) => {
+      const distance = (index + 1) * DISTANCE_MARKER_SPACING;
+      const marker = document.createElement('span');
+      marker.className = 'road-distance-marker';
+      marker.textContent = `${distance} m`;
+      return marker;
+    }));
+  }
+  [...distanceField.children].forEach((marker, index) => {
+    const distance = (index + 1) * DISTANCE_MARKER_SPACING;
+    const x = positionForDistance(distance, stopFraction, roadWidth, pixelsPerMeter);
+    marker.style.left = `${x}%`;
+    marker.hidden = x < 0 || x > 100;
   });
 }
 
