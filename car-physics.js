@@ -6,6 +6,18 @@ export function hasStartingClearance(phase, distance, clearingDistance) {
   return phase === 'green' && distance >= clearingDistance;
 }
 
+export function shouldTriggerStartup(
+  phase,
+  startupTriggered,
+  hasLeader,
+  leaderHasStarted,
+  hasClearance,
+) {
+  return phase === 'green'
+    && !startupTriggered
+    && (!hasLeader || leaderHasStarted || hasClearance);
+}
+
 export function canReleaseFromQueue(
   reactionComplete,
   hasLeader,
