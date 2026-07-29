@@ -8,26 +8,26 @@ import {
   shouldBrakeForTarget,
 } from './car-physics.js';
 
-const CAR_LENGTH = 5;
+const CAR_LENGTH_MIN = 3.8;
+const CAR_LENGTH_MAX = 5.2;
 const STOP_POSITION = 0;
 const STOP_LINE_BUFFER = .5;
-const STOPPED_FRONT_POSITION = STOP_POSITION + CAR_LENGTH / 2 + STOP_LINE_BUFFER;
 const ROAD_MIN = -24;
 const ROAD_MAX = 110;
 const INITIAL_CARS = 10;
-const MAX_SPEED = 13.9;
 const BRAKE_RATE = 5.5;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
 const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
+const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
 const settings = {
   startupMin: 1, startupMax: 2,
   accelerationMin: 1.5, accelerationMax: 2.5,
   clearingMin: 4, clearingMax: 4,
-  phase: 12, arrivalRate: .5, topGap: 2, bottomGap: 5,
+  phase: 12, arrivalRate: .5, speedLimit: 30, topGap: 2, bottomGap: 5,
 };
 const controlDefinitions = [
   { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
@@ -35,6 +35,7 @@ const controlDefinitions = [
   { key: 'clearing', label: 'Clearing distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
   { key: 'phase', label: 'Green / red time', min: 5, max: 30, step: 1, unit: 's', note: 'Equal phase duration' },
   { key: 'arrivalRate', label: 'Arrival rate', min: .2, max: 2, step: .1, unit: 'cars/s', note: 'New cars per lane' },
+  { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
   { key: 'bottomGap', label: 'Bottom resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane B only', className: 'bottom' },
 ];
@@ -82,15 +83,28 @@ for (const def of controlDefinitions) {
 }
 
 let nextCarId = 1;
+let vehicleProfiles = [];
 const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: 0, lanes: [] };
 
-function createCar(position, laneIndex) {
+function vehicleProfile(index) {
+  if (!vehicleProfiles[index]) {
+    vehicleProfiles[index] = {
+      color: CAR_COLORS[index % CAR_COLORS.length],
+      length: randomBetween(CAR_LENGTH_MIN, CAR_LENGTH_MAX),
+    };
+  }
+  return vehicleProfiles[index];
+}
+
+function createCar(position, laneIndex, profileIndex) {
+  const profile = vehicleProfile(profileIndex);
   const node = document.createElement('div');
   node.className = 'car';
+  node.style.setProperty('--car-color', profile.color);
   node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
-    id: nextCarId++, position, speed: 0, startupClock: 0, crossed: false, braking: false,
+    id: nextCarId++, position, length: profile.length, speed: 0, startupClock: 0, crossed: false, braking: false,
     committedToCross: false, node,
     startup: randomBetween(settings.startupMin, settings.startupMax),
     acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
@@ -102,13 +116,19 @@ function fillInitialLane(laneIndex, gap) {
   const cars = [];
   // Start the queue at the same boundary enforced by the red-light physics.
   // Otherwise the first update has to push the lead car away from the line.
-  const front = STOPPED_FRONT_POSITION;
-  for (let i = 0; i < INITIAL_CARS; i++) cars.push(createCar(front + i * (CAR_LENGTH + gap), laneIndex));
-  return { cars, crossed: 0, index: laneIndex };
+  for (let i = 0; i < INITIAL_CARS; i++) {
+    const length = vehicleProfile(i).length;
+    const position = i === 0
+      ? STOP_POSITION + length / 2 + STOP_LINE_BUFFER
+      : cars[i - 1].position + cars[i - 1].length / 2 + gap + length / 2;
+    cars.push(createCar(position, laneIndex, i));
+  }
+  return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS };
 }
 
 function reset() {
   document.querySelectorAll('.car').forEach(node => node.remove());
+  vehicleProfiles = [];
   state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.arrivalClock = 0; state.lastFrame = 0;
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
   updateUI(); render();
@@ -122,7 +142,8 @@ function updateLane(lane, dt) {
     const current = snapshot[i];
     const ahead = snapshot[i - 1];
 
-    const gap = distanceToCarAhead(current, ahead, CAR_LENGTH);
+    const aheadCar = lane.cars[i - 1];
+    const gap = distanceToCarAhead(current, ahead, car.length, aheadCar?.length);
     const hasClearance = hasStartingClearance(state.phase, gap, car.clearing);
     const restingGap = lane.index === 0 ? settings.topGap : settings.bottomGap;
     const pastLine = current.position <= STOP_POSITION;
@@ -145,7 +166,7 @@ function updateLane(lane, dt) {
     // A green-light clearing gap bypasses the normal start-up delay. Otherwise,
     // the delay begins when the signal releases the lead car or its leader moves.
     const readyToStart = hasClearance || car.startupClock >= car.startup;
-    let speedLimit = MAX_SPEED;
+    let speedLimit = settings.speedLimit / 3.6;
     let shouldBrake = false;
 
     if (ahead) {
@@ -165,7 +186,7 @@ function updateLane(lane, dt) {
       // must not accelerate toward an empty red light. When there is a queue
       // ahead, it may still close that gap before stopping at the line.
       if (!closingGapOnRed && !mayCreep) speedLimit = Math.min(speedLimit, current.speed);
-      const distanceToLine = current.position - STOPPED_FRONT_POSITION;
+      const distanceToLine = current.position - (STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER);
       shouldBrake ||= shouldBrakeForTarget(
         distanceToLine,
         current.speed,
@@ -187,14 +208,14 @@ function updateLane(lane, dt) {
     if (ahead) {
       // Zero is the only hard minimum. Resting distance is reached through
       // predictive braking and creeping, never by moving a car backwards.
-      const collisionBoundary = ahead.position + CAR_LENGTH;
+      const collisionBoundary = ahead.position + (car.length + aheadCar.length) / 2;
       if (nextPosition < collisionBoundary) {
         nextPosition = collisionBoundary;
         car.speed = Math.min(car.speed, ahead.speed);
       }
     }
     if (!mayCrossSignal && current.position > STOP_POSITION) {
-      const lineBoundary = STOPPED_FRONT_POSITION;
+      const lineBoundary = STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER;
       if (nextPosition < lineBoundary) {
         nextPosition = lineBoundary;
         car.speed = 0;
@@ -204,7 +225,7 @@ function updateLane(lane, dt) {
 
     if (car.committedToCross && car.position <= STOP_POSITION) car.committedToCross = false;
 
-    if (!car.crossed && car.position < -CAR_LENGTH / 2) { car.crossed = true; lane.crossed++; }
+    if (!car.crossed && car.position < -car.length / 2) { car.crossed = true; lane.crossed++; }
   }
 
   for (const car of lane.cars.filter(c => c.position < ROAD_MIN - 15)) car.node.remove();
@@ -217,7 +238,7 @@ function beginOrangePhase() {
   state.phaseRemaining += ORANGE_DURATION;
   for (const lane of state.lanes) for (const car of lane.cars) {
     car.committedToCross = car.position > STOP_POSITION && cannotStopBeforeLine(
-      car.position - STOPPED_FRONT_POSITION,
+      car.position - (STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER),
       car.speed,
       BRAKE_RATE,
       0,
@@ -229,7 +250,7 @@ function addArrivingCars() {
   for (const lane of state.lanes) {
     const furthestPosition = lane.cars.reduce((furthest, car) => Math.max(furthest, car.position), ROAD_MIN);
     if (hasRoomForArrival(furthestPosition, ROAD_MAX, SPAWN_BUFFER)) {
-      lane.cars.push(createCar(ROAD_MAX, lane.index));
+      lane.cars.push(createCar(ROAD_MAX, lane.index, lane.nextProfile++));
     }
   }
 }
@@ -263,10 +284,10 @@ function render() {
   const stopFraction = isMobile && !overview ? .9 : .82;
   const visibleApproach = isMobile && !overview ? 55 : ROAD_MAX;
   const pixelsPerMeter = roadWidth * stopFraction / visibleApproach;
-  const carWidth = CAR_LENGTH * pixelsPerMeter;
   el('road').style.setProperty('--stop-x', `${stopFraction * 100}%`);
-  el('road').classList.toggle('compact-cars', carWidth < 24);
+  el('road').classList.toggle('compact-cars', CAR_LENGTH_MIN * pixelsPerMeter < 24);
   for (const lane of state.lanes) for (const car of lane.cars) {
+    const carWidth = car.length * pixelsPerMeter;
     const x = (stopFraction * roadWidth - car.position * pixelsPerMeter) / roadWidth * 100;
     car.node.style.left = `${x}%`;
     car.node.style.top = lane.index === 0 ? '51%' : '49%';
@@ -290,8 +311,7 @@ function updateViewMode() {
 function updateUI() {
   el('trafficLight').className = `traffic-light ${state.phase}`;
   el('trafficLight').setAttribute('aria-label', `Traffic light is ${state.phase}`);
-  el('signalMini').className = `signal-mini ${state.phase}`;
-  el('phaseLabel').textContent = `${state.phase.toUpperCase()} PHASE`;
+  el('phaseLabel').textContent = state.phase.toUpperCase();
   el('phaseCountdown').textContent = `${Math.max(0, state.phaseRemaining).toFixed(1)}s`;
   el('runStatus').textContent = state.running ? 'RUNNING' : state.elapsed ? 'PAUSED' : 'READY';
   document.querySelector('.sim-toolbar').classList.toggle('running', state.running);

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="An interactive two-lane traffic light queue simulation." />
-    <title>Green Wave Lab</title>
+    <title>3 Stripes · Good Vibes</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -13,25 +13,8 @@
   <body>
     <main class="app-shell">
       <header class="masthead">
-        <div>
-          <p class="eyebrow">Interactive traffic model</p>
-          <h1>Green Wave <span>Lab</span></h1>
-          <p class="lede">See how varied start-up times, acceleration, and clearing distance shape the flow of two queues.</p>
-        </div>
-        <div class="status-card" aria-live="polite">
-          <div class="signal-mini" id="signalMini"><i></i><i></i><i></i></div>
-          <div><span id="phaseLabel">RED PHASE</span><strong id="phaseCountdown">1.0s</strong></div>
-        </div>
+        <h1>3 Stripes<br><span>Good Vibes</span></h1>
       </header>
-
-      <section class="control-panel" aria-label="Simulation controls">
-        <div class="transport-controls">
-          <button id="playBtn" class="primary-btn" type="button"><span class="play-icon">▶</span><span>Play</span></button>
-          <button id="stopBtn" type="button"><span>■</span><span>Stop</span></button>
-          <button id="restartBtn" type="button"><span>↻</span><span>Restart</span></button>
-        </div>
-        <div class="sliders" id="controls"></div>
-      </section>
 
       <section class="simulation-card">
         <div class="sim-toolbar">
@@ -40,7 +23,6 @@
             <span class="sim-time">SIM TIME <b id="simTime">00:00.0</b></span>
           </div>
           <div class="toolbar-actions">
-            <div class="legend"><span><i class="swatch top"></i>Top lane</span><span><i class="swatch bottom"></i>Bottom lane</span></div>
             <button class="view-toggle" id="viewToggle" type="button" aria-pressed="true">Queue detail</button>
           </div>
         </div>
@@ -55,6 +37,7 @@
             <div class="stop-line"></div>
             <div class="traffic-light" id="trafficLight" aria-label="Traffic light is red">
               <div class="light red"></div><div class="light orange"></div><div class="light green"></div><div class="light-pole"></div>
+              <div class="road-timer" aria-live="polite"><span id="phaseLabel">RED</span><strong id="phaseCountdown">1.0s</strong></div>
             </div>
             <div class="direction">FLOW <span>←</span></div>
           </div>
@@ -66,7 +49,16 @@
         </div>
       </section>
 
-      <footer><p><b>MODEL NOTE</b> Cars are 5m long. Driver traits are sampled uniformly within each selected range.</p><p>GREEN WAVE LAB · DRIVER VARIATION MODEL</p></footer>
+      <section class="control-panel" aria-label="Simulation controls">
+        <div class="transport-controls">
+          <button id="playBtn" class="primary-btn" type="button"><span class="play-icon">▶</span><span>Play</span></button>
+          <button id="stopBtn" type="button"><span>■</span><span>Stop</span></button>
+          <button id="restartBtn" type="button"><span>↻</span><span>Restart</span></button>
+        </div>
+        <div class="sliders" id="controls"></div>
+      </section>
+
+      <footer><p><b>MODEL NOTE</b> Cars are 3.8–5.2m long. Vehicle sizes and driver traits are sampled uniformly.</p><p>3 STRIPES · GOOD VIBES</p></footer>
     </main>
     <script type="module" src="app.js"></script>
   </body>

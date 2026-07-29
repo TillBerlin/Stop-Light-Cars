@@ -19,6 +19,7 @@ test('measures the clear distance in the direction cars travel', () => {
 
   assert.equal(distanceToCarAhead(car, carAhead, 5), 7);
   assert.equal(distanceToCarAhead(car, undefined, 5), Infinity);
+  assert.equal(distanceToCarAhead(car, carAhead, 4, 6), 7);
 });
 
 test('starts immediately only for a green-light gap bigger than the clearing distance', () => {
