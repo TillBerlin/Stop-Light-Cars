@@ -2,6 +2,7 @@ import {
   canCloseGapOnRed,
   cannotStopBeforeLine,
   distanceToCarAhead,
+  followsThreeStripeRule,
   hasStartingClearance,
   hasRoomForArrival,
   randomBetween,
@@ -30,6 +31,7 @@ const settings = {
   accelerationMin: 1.5, accelerationMax: 2.5,
   clearingMin: 4, clearingMax: 4,
   phase: 12, arrivalRate: .5, speedLimit: 30, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
+  stripeCompliance: 100,
 };
 const controlDefinitions = [
   { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
@@ -39,6 +41,7 @@ const controlDefinitions = [
   { key: 'arrivalRate', label: 'Arrival rate', min: .2, max: 2, step: .1, unit: 'cars/s', note: 'New cars per lane' },
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
+  { key: 'stripeCompliance', label: '3-stripes compliance', min: 0, max: 100, step: 10, unit: '%', note: 'Share of Lane B drivers', className: 'bottom' },
 ];
 
 const el = id => document.getElementById(id);
@@ -76,7 +79,7 @@ for (const def of controlDefinitions) {
     if (def.key === 'phase' && !state.running) {
       state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.phase;
     }
-    if ((def.key === 'topGap' || def.key === 'bottomGap') && state.elapsed === 0) reset();
+    if ((def.key === 'topGap' || def.key === 'bottomGap' || def.key === 'stripeCompliance') && state.elapsed === 0) reset();
     updateUI();
   });
   controls.appendChild(wrapper);
@@ -109,6 +112,9 @@ function createCar(position, laneIndex, profileIndex) {
     startup: randomBetween(settings.startupMin, settings.startupMax),
     acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
     clearing: randomBetween(settings.clearingMin, settings.clearingMax),
+    followsThreeStripeRule: laneIndex === 1
+      ? followsThreeStripeRule(settings.stripeCompliance)
+      : false,
   };
 }
 
@@ -118,10 +124,13 @@ function fillInitialLane(laneIndex, gap) {
   // Otherwise the first update has to push the lead car away from the line.
   for (let i = 0; i < INITIAL_CARS; i++) {
     const length = vehicleProfile(i).length;
+    const car = createCar(0, laneIndex, i);
+    const restingGap = laneIndex === 1 && !car.followsThreeStripeRule ? settings.topGap : gap;
     const position = i === 0
       ? STOP_POSITION + length / 2 + STOP_LINE_BUFFER
-      : cars[i - 1].position + cars[i - 1].length / 2 + gap + length / 2;
-    cars.push(createCar(position, laneIndex, i));
+      : cars[i - 1].position + cars[i - 1].length / 2 + restingGap + length / 2;
+    car.position = position;
+    cars.push(car);
   }
   return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS };
 }
@@ -145,7 +154,9 @@ function updateLane(lane, dt) {
     const aheadCar = lane.cars[i - 1];
     const gap = distanceToCarAhead(current, ahead, car.length, aheadCar?.length);
     const hasClearance = hasStartingClearance(state.phase, gap, car.clearing);
-    const restingGap = lane.index === 0 ? settings.topGap : settings.bottomGap;
+    const restingGap = lane.index === 0 || !car.followsThreeStripeRule
+      ? settings.topGap
+      : settings.bottomGap;
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
     const mayCreep = ahead && gap > restingGap && ahead.speed < STOPPED_SPEED;

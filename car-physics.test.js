@@ -5,6 +5,7 @@ import {
   canCloseGapOnRed,
   cannotStopBeforeLine,
   distanceToCarAhead,
+  followsThreeStripeRule,
   hasStartingClearance,
   hasRoomForArrival,
   mustStopForRedLight,
@@ -59,6 +60,13 @@ test('samples driver characteristics uniformly between their bounds', () => {
 
 test('does not consume randomness when both bounds are identical', () => {
   assert.equal(randomBetween(0.8, 0.8, () => { throw new Error('random called'); }), 0.8);
+});
+
+test('assigns three-stripe adherence from the selected compliance percentage', () => {
+  assert.equal(followsThreeStripeRule(100, () => 0.999), true);
+  assert.equal(followsThreeStripeRule(0, () => 0), false);
+  assert.equal(followsThreeStripeRule(60, () => 0.599), true);
+  assert.equal(followsThreeStripeRule(60, () => 0.6), false);
 });
 
 test('calculates stopping distance from relative rather than absolute speed', () => {
