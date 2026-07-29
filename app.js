@@ -25,15 +25,15 @@ const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 
 const settings = {
-  reactionMin: 0.8, reactionMax: 0.8,
-  accelerationMin: 2.2, accelerationMax: 2.2,
-  safetyMin: 4, safetyMax: 4,
-  phase: 12, topGap: 2.5, bottomGap: 5,
+  startupMin: 1, startupMax: 2,
+  accelerationMin: 1.5, accelerationMax: 2.5,
+  clearingMin: 4, clearingMax: 4,
+  phase: 12, topGap: 2, bottomGap: 5,
 };
 const controlDefinitions = [
-  { key: 'reaction', label: 'Reaction time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
+  { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
   { key: 'acceleration', label: 'Acceleration', min: .5, max: 4, step: .1, unit: 'm/s²', note: 'Uniform range per car', range: true },
-  { key: 'safety', label: 'Safety distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
+  { key: 'clearing', label: 'Clearing distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
   { key: 'phase', label: 'Green / red time', min: 5, max: 30, step: 1, unit: 's', note: 'Equal phase duration' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
   { key: 'bottomGap', label: 'Bottom resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane B only', className: 'bottom' },
@@ -89,11 +89,11 @@ function createCar(position, laneIndex) {
   node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
-    id: nextCarId++, position, speed: 0, reactionClock: 0, crossed: false, braking: false,
+    id: nextCarId++, position, speed: 0, startupClock: 0, crossed: false, braking: false,
     committedToCross: false, node,
-    reaction: randomBetween(settings.reactionMin, settings.reactionMax),
+    startup: randomBetween(settings.startupMin, settings.startupMax),
     acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
-    safety: randomBetween(settings.safetyMin, settings.safetyMax),
+    clearing: randomBetween(settings.clearingMin, settings.clearingMax),
   };
 }
 
@@ -122,7 +122,7 @@ function updateLane(lane, dt) {
     const ahead = snapshot[i - 1];
 
     const gap = distanceToCarAhead(current, ahead, CAR_LENGTH);
-    const hasSpace = hasStartingClearance(gap, car.safety);
+    const hasClearance = hasStartingClearance(state.phase, gap, car.clearing);
     const restingGap = lane.index === 0 ? settings.topGap : settings.bottomGap;
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
@@ -134,12 +134,16 @@ function updateLane(lane, dt) {
       gap,
       restingGap,
     );
-    const allowed = (mayCrossSignal && (hasSpace || !ahead)) || mayCreep || closingGapOnRed;
+    const leaderHasStarted = ahead && ahead.speed >= STOPPED_SPEED;
+    const canBeginStartup = mayCrossSignal && (!ahead || leaderHasStarted);
+    const allowed = (mayCrossSignal && (hasClearance || !ahead || leaderHasStarted)) || mayCreep || closingGapOnRed;
 
-    if (current.speed < STOPPED_SPEED && allowed) car.reactionClock += dt;
-    else if (!allowed && current.speed < STOPPED_SPEED) car.reactionClock = 0;
+    if (current.speed < STOPPED_SPEED && canBeginStartup) car.startupClock += dt;
+    else if (!canBeginStartup && current.speed < STOPPED_SPEED) car.startupClock = 0;
 
-    const reacting = car.reactionClock >= car.reaction;
+    // A green-light clearing gap bypasses the normal start-up delay. Otherwise,
+    // the delay begins when the signal releases the lead car or its leader moves.
+    const readyToStart = hasClearance || car.startupClock >= car.startup;
     let speedLimit = MAX_SPEED;
     let shouldBrake = false;
 
@@ -150,9 +154,9 @@ function updateLane(lane, dt) {
         current.speed,
         ahead.speed,
         BRAKE_RATE,
-        car.reaction,
+        0,
       );
-      if (ahead.speed < STOPPED_SPEED && gap <= car.safety) speedLimit = CREEP_SPEED;
+      if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
     }
 
     if (!mayCrossSignal && current.position > STOP_POSITION) {
@@ -166,11 +170,11 @@ function updateLane(lane, dt) {
         current.speed,
         0,
         BRAKE_RATE,
-        car.reaction,
+        0,
       );
     }
 
-    if (!reacting && current.speed < STOPPED_SPEED) speedLimit = 0;
+    if (!readyToStart && current.speed < STOPPED_SPEED && !mayCreep && !closingGapOnRed) speedLimit = 0;
     if (!mayCrossSignal && !ahead && current.speed < STOPPED_SPEED) speedLimit = 0;
     car.braking = shouldBrake || current.speed > speedLimit + STOPPED_SPEED;
     if (car.braking) car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
@@ -215,7 +219,7 @@ function beginOrangePhase() {
       car.position - STOPPED_FRONT_POSITION,
       car.speed,
       BRAKE_RATE,
-      car.reaction,
+      0,
     );
   }
 }

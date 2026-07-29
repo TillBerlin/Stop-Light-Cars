@@ -2,13 +2,13 @@ export function distanceToCarAhead(car, carAhead, carLength) {
   return carAhead ? car.position - carAhead.position - carLength : Infinity;
 }
 
-export function hasStartingClearance(distance, safetyDistance) {
-  return distance > safetyDistance;
+export function hasStartingClearance(phase, distance, clearingDistance) {
+  return phase === 'green' && distance > clearingDistance;
 }
 
-export function relativeStoppingDistance(followerSpeed, leaderSpeed, brakingRate, reactionTime = 0) {
+export function relativeStoppingDistance(followerSpeed, leaderSpeed, brakingRate, responseTime = 0) {
   const closingSpeed = Math.max(0, followerSpeed - leaderSpeed);
-  return closingSpeed * reactionTime + (closingSpeed ** 2) / (2 * brakingRate);
+  return closingSpeed * responseTime + (closingSpeed ** 2) / (2 * brakingRate);
 }
 
 export function shouldBrakeForTarget(
@@ -16,18 +16,18 @@ export function shouldBrakeForTarget(
   followerSpeed,
   targetSpeed,
   brakingRate,
-  reactionTime = 0,
+  responseTime = 0,
 ) {
   return availableDistance <= relativeStoppingDistance(
     followerSpeed,
     targetSpeed,
     brakingRate,
-    reactionTime,
+    responseTime,
   );
 }
 
-export function cannotStopBeforeLine(distanceToLine, speed, brakingRate, reactionTime = 0) {
-  return distanceToLine < relativeStoppingDistance(speed, 0, brakingRate, reactionTime);
+export function cannotStopBeforeLine(distanceToLine, speed, brakingRate, responseTime = 0) {
+  return distanceToLine < relativeStoppingDistance(speed, 0, brakingRate, responseTime);
 }
 
 export function mustStopForRedLight(phase, position, stopPosition) {

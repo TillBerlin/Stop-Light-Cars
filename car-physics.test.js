@@ -21,10 +21,13 @@ test('measures the clear distance in the direction cars travel', () => {
   assert.equal(distanceToCarAhead(car, undefined, 5), Infinity);
 });
 
-test('starts only when clearance is bigger than the safety distance', () => {
-  assert.equal(hasStartingClearance(6.1, 6), true);
-  assert.equal(hasStartingClearance(6, 6), false);
-  assert.equal(hasStartingClearance(5.9, 6), false);
+test('starts immediately only for a green-light gap bigger than the clearing distance', () => {
+  assert.equal(hasStartingClearance('green', 6.1, 6), true);
+  assert.equal(hasStartingClearance('green', 6, 6), false);
+  assert.equal(hasStartingClearance('green', 5.9, 6), false);
+  assert.equal(hasStartingClearance('green', Infinity, 6), true);
+  assert.equal(hasStartingClearance('red', 6.1, 6), false);
+  assert.equal(hasStartingClearance('orange', 6.1, 6), false);
 });
 
 test('identifies cars approaching a red stop line', () => {
