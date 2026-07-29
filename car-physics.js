@@ -49,3 +49,7 @@ export function randomBetween(minimum, maximum, random = Math.random) {
   if (minimum === maximum) return minimum;
   return minimum + random() * (maximum - minimum);
 }
+
+export function followsThreeStripeRule(compliancePercent, random = Math.random) {
+  return random() * 100 < compliancePercent;
+}
