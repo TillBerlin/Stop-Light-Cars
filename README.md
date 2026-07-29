@@ -5,7 +5,7 @@ An interactive traffic simulation showing how two queues respond to one traffic 
 ## Features
 
 - Ten 5-meter cars initially queue in each lane.
-- A queued car starts after the car ahead starts plus its own start-up time. On green, usable space above the common normal base gap can let it start immediately, so widely spaced queues can move together.
+- A queued car waits for its own start-up time and normally for the car ahead to start. On green, usable space above the common normal base gap lets a driver react and start independently, so widely spaced queues can move together without skipping any driver's reaction time.
 - Cars accelerate smoothly and brake to avoid the car ahead. On red, queued cars continue closing available space until they reach their lane's resting gap.
 - Equal, configurable red and green phases repeat automatically, separated by a one-second orange phase. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
 - A new car arrives in each lane at a configurable rate whenever there is room at that lane's entrance. The default is one car every two seconds, and the arrival-rate slider ranges from one car every five seconds to two cars per second.

@@ -6,6 +6,15 @@ export function hasStartingClearance(phase, distance, clearingDistance) {
   return phase === 'green' && distance >= clearingDistance;
 }
 
+export function canReleaseFromQueue(
+  reactionComplete,
+  hasLeader,
+  leaderHasStarted,
+  hasClearance,
+) {
+  return reactionComplete && (!hasLeader || leaderHasStarted || hasClearance);
+}
+
 export function availableStartingBuffer(gap, normalBaseGap) {
   return Math.max(0, gap - normalBaseGap);
 }

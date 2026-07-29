@@ -1,6 +1,7 @@
 import {
   availableStartingBuffer,
   canCloseGapOnRed,
+  canReleaseFromQueue,
   cannotStopBeforeLine,
   distanceToCarAhead,
   followsThreeStripeRule,
@@ -207,16 +208,21 @@ function updateLane(lane, dt) {
       standstillGap,
     );
     const leaderHasStarted = ahead && (!ahead.queueMode || ahead.speed >= STOPPED_SPEED);
-    const canBeginStartup = mayCrossSignal && (!ahead || leaderHasStarted);
-    const allowed = (mayCrossSignal && (hasClearance || !ahead || leaderHasStarted)) || mayCreep || closingGapOnRed;
+    // Extra space lets a follower react independently of its leader on green.
+    const canBeginStartup = mayCrossSignal && (!ahead || leaderHasStarted || hasClearance);
+    const allowed = (mayCrossSignal && (!ahead || leaderHasStarted || hasClearance)) || mayCreep || closingGapOnRed;
 
     if (current.speed < STOPPED_SPEED && canBeginStartup) car.startupClock += dt;
     else if (!canBeginStartup && current.speed < STOPPED_SPEED) car.startupClock = 0;
 
-    // A green-light clearing gap bypasses the normal start-up delay. Otherwise,
-    // the delay begins when the signal releases the lead car or its leader moves.
-    const readyToStart = hasClearance || car.startupClock >= car.startup;
-    if (car.queueMode && mayCrossSignal && readyToStart && (!ahead || hasClearance || leaderHasStarted)) {
+    // Clearance removes the dependency on the leader, not the reaction delay.
+    const readyToStart = car.startupClock >= car.startup;
+    if (car.queueMode && mayCrossSignal && canReleaseFromQueue(
+      readyToStart,
+      Boolean(ahead),
+      Boolean(leaderHasStarted),
+      hasClearance,
+    )) {
       car.queueMode = false;
       car.releasedFromQueue = true;
     }
