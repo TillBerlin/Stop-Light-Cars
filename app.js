@@ -6,6 +6,7 @@ import {
   hasStartingClearance,
   hasRoomForArrival,
   randomBetween,
+  restingDistanceForPosition,
   shouldBrakeForTarget,
 } from './car-physics.js';
 
@@ -23,7 +24,8 @@ const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 const STRIPE_SPACING = 2;
-const STRIPE_FIELD_LENGTH = 50;
+const STRIPE_ZONE_START = ROAD_MAX / 3;
+const STRIPE_ZONE_END = ROAD_MAX * 2 / 3;
 const DISTANCE_MARKER_SPACING = 10;
 const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
@@ -127,9 +129,14 @@ function fillInitialLane(laneIndex, gap) {
   for (let i = 0; i < INITIAL_CARS; i++) {
     const length = vehicleProfile(i).length;
     const car = createCar(0, laneIndex, i);
-    const restingGap = laneIndex === 1 && !car.followsThreeStripeRule ? settings.topGap : gap;
-    const position = i === 0
+    const normalPosition = i === 0
       ? STOP_POSITION + length / 2 + STOP_LINE_BUFFER
+      : cars[i - 1].position + cars[i - 1].length / 2 + settings.topGap + length / 2;
+    const restingGap = laneIndex === 1
+      ? restingDistanceForPosition(normalPosition, car.followsThreeStripeRule, STRIPE_ZONE_START, STRIPE_ZONE_END, settings.topGap, gap)
+      : settings.topGap;
+    const position = i === 0
+      ? normalPosition
       : cars[i - 1].position + cars[i - 1].length / 2 + restingGap + length / 2;
     car.position = position;
     cars.push(car);
@@ -156,9 +163,9 @@ function updateLane(lane, dt) {
     const aheadCar = lane.cars[i - 1];
     const gap = distanceToCarAhead(current, ahead, car.length, aheadCar?.length);
     const hasClearance = hasStartingClearance(state.phase, gap, car.clearing);
-    const restingGap = lane.index === 0 || !car.followsThreeStripeRule
-      ? settings.topGap
-      : settings.bottomGap;
+    const restingGap = lane.index === 1
+      ? restingDistanceForPosition(current.position, car.followsThreeStripeRule, STRIPE_ZONE_START, STRIPE_ZONE_END, settings.topGap, settings.bottomGap)
+      : settings.topGap;
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
     const mayCreep = ahead && gap > restingGap && ahead.speed < STOPPED_SPEED;
@@ -318,7 +325,7 @@ function positionForDistance(distance, stopFraction, roadWidth, pixelsPerMeter) 
 
 function renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter) {
   const stripeField = el('stripeField');
-  const stripeCount = STRIPE_FIELD_LENGTH / STRIPE_SPACING;
+  const stripeCount = Math.floor((STRIPE_ZONE_END - STRIPE_ZONE_START) / STRIPE_SPACING) + 1;
   if (stripeField.children.length !== stripeCount) {
     stripeField.replaceChildren(...Array.from({ length: stripeCount }, () => {
       const stripe = document.createElement('i');
@@ -327,11 +334,15 @@ function renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter) {
     }));
   }
   [...stripeField.children].forEach((stripe, index) => {
-    const distance = (index + 1) * STRIPE_SPACING;
+    const distance = STRIPE_ZONE_START + index * STRIPE_SPACING;
     const x = positionForDistance(distance, stopFraction, roadWidth, pixelsPerMeter);
     stripe.style.left = `${x}%`;
     stripe.hidden = x < 0 || x > 100;
   });
+
+  // Traffic approaches from the right, so the far edge is where drivers first
+  // encounter the striped zone and its sign.
+  el('threeStripesSign').style.left = `${positionForDistance(STRIPE_ZONE_END, stopFraction, roadWidth, pixelsPerMeter)}%`;
 
   const distanceField = el('roadDistanceField');
   const markerCount = ROAD_MAX / DISTANCE_MARKER_SPACING;

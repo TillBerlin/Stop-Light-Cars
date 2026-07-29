@@ -11,6 +11,7 @@ import {
   mustStopForRedLight,
   randomBetween,
   relativeStoppingDistance,
+  restingDistanceForPosition,
   shouldBrakeForTarget,
 } from './car-physics.js';
 
@@ -67,6 +68,17 @@ test('assigns three-stripe adherence from the selected compliance percentage', (
   assert.equal(followsThreeStripeRule(0, () => 0), false);
   assert.equal(followsThreeStripeRule(60, () => 0.599), true);
   assert.equal(followsThreeStripeRule(60, () => 0.6), false);
+});
+
+test('uses the three-stripe gap only while a compliant car is in the striped zone', () => {
+  const gapAt = (position, follows = true) => restingDistanceForPosition(position, follows, 30, 60, 2, 6);
+
+  assert.equal(gapAt(29.9), 2);
+  assert.equal(gapAt(30), 6);
+  assert.equal(gapAt(45), 6);
+  assert.equal(gapAt(60), 6);
+  assert.equal(gapAt(60.1), 2);
+  assert.equal(gapAt(45, false), 2);
 });
 
 test('calculates stopping distance from relative rather than absolute speed', () => {
