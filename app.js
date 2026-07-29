@@ -5,6 +5,8 @@ import {
   followsThreeStripeRule,
   hasStartingClearance,
   hasRoomForArrival,
+  movingSafetyDistance,
+  needsEmergencyBraking,
   randomBetween,
   restingDistanceForPosition,
   shouldBrakeForTarget,
@@ -18,14 +20,18 @@ const ROAD_MIN = -24;
 const ROAD_MAX = 110;
 const INITIAL_CARS = 10;
 const BRAKE_RATE = 5.5;
+const EMERGENCY_BRAKE_RATE = 9;
+const DRIVER_RESPONSE_TIME = .8;
+const EMERGENCY_DISTANCE = 4;
+const EMERGENCY_CLOSING_SPEED = 3;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
 const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 const STRIPE_SPACING = 2;
-const STRIPE_ZONE_START = ROAD_MAX / 3;
-const STRIPE_ZONE_END = ROAD_MAX * 2 / 3;
+const STRIPE_ZONE_START = 0;
+const STRIPE_ZONE_END = 50;
 const DISTANCE_MARKER_SPACING = 10;
 const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
@@ -188,16 +194,24 @@ function updateLane(lane, dt) {
     const readyToStart = hasClearance || car.startupClock >= car.startup;
     let speedLimit = settings.speedLimit / 3.6;
     let shouldBrake = false;
+    let brakingRate = BRAKE_RATE;
 
     if (ahead) {
-      const availableGap = gap - restingGap;
-      shouldBrake = shouldBrakeForTarget(
-        availableGap,
+      const safetyDistance = movingSafetyDistance(
+        restingGap,
         current.speed,
         ahead.speed,
         BRAKE_RATE,
-        0,
+        DRIVER_RESPONSE_TIME,
       );
+      shouldBrake = gap <= safetyDistance;
+      if (needsEmergencyBraking(
+        gap,
+        current.speed,
+        ahead.speed,
+        EMERGENCY_DISTANCE,
+        EMERGENCY_CLOSING_SPEED,
+      )) brakingRate = EMERGENCY_BRAKE_RATE;
       if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
     }
 
@@ -212,14 +226,14 @@ function updateLane(lane, dt) {
         current.speed,
         0,
         BRAKE_RATE,
-        0,
+        DRIVER_RESPONSE_TIME,
       );
     }
 
     if (!readyToStart && current.speed < STOPPED_SPEED && !mayCreep && !closingGapOnRed) speedLimit = 0;
     if (!mayCrossSignal && !ahead && current.speed < STOPPED_SPEED) speedLimit = 0;
     car.braking = shouldBrake || current.speed > speedLimit + STOPPED_SPEED;
-    if (car.braking) car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
+    if (car.braking) car.speed = Math.max(0, current.speed - brakingRate * dt);
     else if (allowed || current.speed >= STOPPED_SPEED) {
       car.speed = Math.min(speedLimit, current.speed + car.acceleration * dt);
     } else car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
@@ -261,7 +275,7 @@ function beginOrangePhase() {
       car.position - (STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER),
       car.speed,
       BRAKE_RATE,
-      0,
+      DRIVER_RESPONSE_TIME,
     );
   }
 }
@@ -340,8 +354,8 @@ function renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter) {
     stripe.hidden = x < 0 || x > 100;
   });
 
-  // Traffic approaches from the right, so the far edge is where drivers first
-  // encounter the striped zone and its sign.
+  // Traffic travels left to right. Place the sign beyond the upstream edge so
+  // it remains visually to the left of every stripe.
   el('threeStripesSign').style.left = `${positionForDistance(STRIPE_ZONE_END, stopFraction, roadWidth, pixelsPerMeter)}%`;
 
   const distanceField = el('roadDistanceField');

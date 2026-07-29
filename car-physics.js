@@ -26,6 +26,32 @@ export function shouldBrakeForTarget(
   );
 }
 
+export function movingSafetyDistance(
+  restingDistance,
+  followerSpeed,
+  leaderSpeed,
+  brakingRate,
+  responseTime,
+) {
+  const reactionDistance = Math.max(0, followerSpeed) * responseTime;
+  const speedDifferenceDistance = Math.max(
+    0,
+    (followerSpeed ** 2 - leaderSpeed ** 2) / (2 * brakingRate),
+  );
+  return restingDistance + reactionDistance + speedDifferenceDistance;
+}
+
+export function needsEmergencyBraking(
+  gap,
+  followerSpeed,
+  leaderSpeed,
+  emergencyDistance,
+  minimumClosingSpeed,
+) {
+  return gap <= emergencyDistance
+    && followerSpeed - leaderSpeed >= minimumClosingSpeed;
+}
+
 export function cannotStopBeforeLine(distanceToLine, speed, brakingRate, responseTime = 0) {
   return distanceToLine < relativeStoppingDistance(speed, 0, brakingRate, responseTime);
 }
