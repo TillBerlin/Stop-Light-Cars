@@ -39,10 +39,14 @@
             <span class="live-dot"></span><span id="runStatus">READY</span>
             <span class="sim-time">SIM TIME <b id="simTime">00:00.0</b></span>
           </div>
-          <div class="legend"><span><i class="swatch top"></i>Top lane</span><span><i class="swatch bottom"></i>Bottom lane</span></div>
+          <div class="toolbar-actions">
+            <div class="legend"><span><i class="swatch top"></i>Top lane</span><span><i class="swatch bottom"></i>Bottom lane</span></div>
+            <button class="view-toggle" id="viewToggle" type="button" aria-pressed="true">Queue detail</button>
+          </div>
         </div>
 
-        <div class="road-wrap">
+        <div class="road-wrap queue-view" id="roadWrap">
+          <p class="view-note" id="viewNote">Queue detail · showing the area nearest the stop line</p>
           <div class="distance-labels" aria-hidden="true"><span>100m</span><span>75m</span><span>50m</span><span>25m</span><span>STOP LINE</span></div>
           <div class="road" id="road">
             <div class="lane lane-top" id="laneTop"><div class="lane-name">LANE A</div></div>
