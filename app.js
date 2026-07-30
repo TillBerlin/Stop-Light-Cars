@@ -45,7 +45,7 @@ const settings = {
   startupMin: 1.7, startupMax: 2,
   accelerationMin: 1.8, accelerationMax: 2.2,
   clearingMin: 4, clearingMax: 4,
-  phase: 12, arrivalRate: .5, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
+  phase: 12, arrivalRate: 30, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
   stripeCompliance: 100, stripeLength: 50, simulationSpeed: 1,
 };
 const controlDefinitions = [
@@ -53,7 +53,7 @@ const controlDefinitions = [
   { key: 'acceleration', label: 'Acceleration', min: .5, max: 4, step: .1, unit: 'm/s²', note: 'Uniform range per car', range: true },
   { key: 'clearing', label: 'Clearing distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
   { key: 'phase', label: 'Green / red time', min: 5, max: 30, step: 1, unit: 's', note: 'Equal phase duration' },
-  { key: 'arrivalRate', label: 'Arrival rate', min: .2, max: 2, step: .1, unit: 'cars/s', note: 'New cars per lane' },
+  { key: 'arrivalRate', label: 'Arrival rate', min: 10, max: 60, step: 5, unit: 'cars/min', note: 'New cars per lane' },
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
   { key: 'stripeCompliance', label: '3-stripes compliance', min: 0, max: 100, step: 10, unit: '%', note: 'Share of Lane B drivers', className: 'bottom' },
@@ -417,7 +417,7 @@ function tick(timestamp) {
       }
     }
     state.lanes.forEach(lane => updateLane(lane, dt));
-    const arrivalInterval = 1 / settings.arrivalRate;
+    const arrivalInterval = 60 / settings.arrivalRate;
     while (state.arrivalClock >= arrivalInterval) {
       queueArrivingCars();
       state.arrivalClock -= arrivalInterval;

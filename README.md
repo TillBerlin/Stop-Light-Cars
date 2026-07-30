@@ -8,7 +8,7 @@ An interactive traffic simulation showing how two queues respond to one traffic 
 - A queued car waits for its own start-up time and normally for the car ahead to start. On green, usable space above the common normal base gap lets a driver react and start independently, so widely spaced queues can move together without skipping any driver's reaction time.
 - Cars accelerate smoothly and brake to avoid the car ahead. On red, queued cars continue closing available space until they reach their lane's resting gap.
 - Equal, configurable red and green phases repeat automatically, separated by a one-second orange phase. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
-- New-car demand continues in each lane at the configured rate even when its entrance is blocked. Waiting arrivals appear in an upstream counter and enter as space becomes available, at a speed based on the leader and available stopping distance. The default is one car every two seconds, and the arrival-rate slider ranges from one car every five seconds to two cars per second.
+- New-car demand continues in each lane at the configured rate even when its entrance is blocked. Waiting arrivals appear in an upstream counter and enter as space becomes available, at a speed based on the leader and available stopping distance. The default is 30 cars per minute, and the arrival-rate slider ranges from 10 to 60 cars per minute in increments of 5.
 - Live crossed-car counts and phase countdown.
 - Play, pause, and restart controls.
 - Responsive, accessible static application built with Vite.
