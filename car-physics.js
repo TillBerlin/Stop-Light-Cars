@@ -109,6 +109,35 @@ export function hasRoomForArrival(furthestPosition, roadMaximum, spawnBuffer) {
   return furthestPosition < roadMaximum - spawnBuffer;
 }
 
+export function entranceGap(leaderPosition, roadMaximum, arrivingLength, leaderLength) {
+  return roadMaximum - leaderPosition - (arrivingLength + leaderLength) / 2;
+}
+
+export function safeArrivalSpeed(
+  availableGap,
+  leaderSpeed,
+  speedLimit,
+  baseSafetyDistance,
+  brakingRate,
+  responseTime,
+) {
+  if (!Number.isFinite(availableGap)) return speedLimit;
+  if (availableGap < baseSafetyDistance) return 0;
+
+  let low = Math.min(leaderSpeed, speedLimit);
+  let high = speedLimit;
+  const usableDistance = availableGap - baseSafetyDistance;
+  for (let i = 0; i < 24; i++) {
+    const candidate = (low + high) / 2;
+    if (relativeStoppingDistance(candidate, leaderSpeed, brakingRate, responseTime) <= usableDistance) {
+      low = candidate;
+    } else {
+      high = candidate;
+    }
+  }
+  return low;
+}
+
 export function randomBetween(minimum, maximum, random = Math.random) {
   if (minimum === maximum) return minimum;
   return minimum + random() * (maximum - minimum);
