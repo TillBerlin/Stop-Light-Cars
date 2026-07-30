@@ -63,6 +63,7 @@ const controlDefinitions = [
 const el = id => document.getElementById(id);
 const controls = el('controls');
 const mobileView = { overview: false };
+let animationFrameId = null;
 for (const def of controlDefinitions) {
   const wrapper = document.createElement('div');
   wrapper.className = `slider-control ${def.range ? 'range-control' : ''} ${def.className || ''}`;
@@ -107,7 +108,7 @@ for (const def of controlDefinitions) {
 
 let nextCarId = 1;
 let vehicleProfiles = [];
-const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: 0, lanes: [] };
+const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: null, lanes: [] };
 
 function vehicleProfile(index) {
   if (!vehicleProfiles[index]) {
@@ -166,7 +167,7 @@ function fillInitialLane(laneIndex, gap) {
 function reset() {
   document.querySelectorAll('.car').forEach(node => node.remove());
   vehicleProfiles = [];
-  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.arrivalClock = 0; state.lastFrame = 0;
+  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.arrivalClock = 0; state.lastFrame = null;
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
   updateUI(); render();
 }
@@ -390,9 +391,10 @@ function materializeArrivingCars() {
 }
 
 function tick(timestamp) {
+  animationFrameId = null;
   if (!state.running) return;
-  if (!state.lastFrame) state.lastFrame = timestamp;
-  let remaining = Math.min((timestamp - state.lastFrame) / 1000, .05) * settings.simulationSpeed;
+  if (state.lastFrame === null) state.lastFrame = timestamp;
+  let remaining = Math.min(Math.max(0, timestamp - state.lastFrame) / 1000, .05) * settings.simulationSpeed;
   state.lastFrame = timestamp;
   while (remaining > 0) {
     const dt = Math.min(remaining, .05);
@@ -415,7 +417,19 @@ function tick(timestamp) {
     materializeArrivingCars();
     remaining -= dt;
   }
-  render(); updateUI(); requestAnimationFrame(tick);
+  render(); updateUI(); scheduleAnimation();
+}
+
+function scheduleAnimation() {
+  if (state.running && animationFrameId === null) {
+    animationFrameId = requestAnimationFrame(tick);
+  }
+}
+
+function cancelAnimation() {
+  if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+  animationFrameId = null;
+  state.lastFrame = null;
 }
 
 function render() {
@@ -514,16 +528,27 @@ function updateUI() {
   el('playBtn').querySelector('span:last-child').textContent = state.elapsed ? 'Resume' : 'Play';
 }
 
-el('playBtn').addEventListener('click', () => { if (!state.running) { state.running = true; state.lastFrame = 0; updateUI(); requestAnimationFrame(tick); } });
-el('stopBtn').addEventListener('click', () => { state.running = false; state.lastFrame = 0; updateUI(); });
+el('playBtn').addEventListener('click', () => {
+  if (!state.running) {
+    state.running = true;
+    state.lastFrame = null;
+    updateUI();
+    scheduleAnimation();
+  }
+});
+el('stopBtn').addEventListener('click', () => {
+  state.running = false;
+  cancelAnimation();
+  updateUI();
+});
 el('restartBtn').addEventListener('click', () => {
   // Restart begins a fresh run immediately, so its one-second opening red
   // phase counts down instead of remaining frozen until Play is pressed.
-  const animationWasRunning = state.running;
+  cancelAnimation();
   reset();
   state.running = true;
   updateUI();
-  if (!animationWasRunning) requestAnimationFrame(tick);
+  scheduleAnimation();
 });
 el('viewToggle').addEventListener('click', () => {
   mobileView.overview = !mobileView.overview;
