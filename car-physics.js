@@ -53,10 +53,27 @@ export function shouldEnterQueueMode(
   signalRequiresStop,
   leaderIsQueued,
   releasedFromCurrentQueue = false,
+  isStandingAtRestingPosition = true,
 ) {
   const inQueueZone = position > stopPosition && position <= queueZoneEnd;
   return inQueueZone
+    && isStandingAtRestingPosition
     && (signalRequiresStop || (leaderIsQueued && !releasedFromCurrentQueue));
+}
+
+export function visibleBehavior({
+  startupRemaining,
+  queueMode,
+  speed,
+  stoppedSpeed,
+  creeping,
+  braking,
+}) {
+  if (startupRemaining > 0) return `Startup ${startupRemaining.toFixed(2)} s`;
+  if (queueMode && speed < stoppedSpeed) return 'Queue';
+  if (creeping) return 'Creep';
+  if (braking) return 'Brake';
+  return 'Driving';
 }
 
 export function relativeStoppingDistance(followerSpeed, leaderSpeed, brakingRate, responseTime = 0) {

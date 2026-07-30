@@ -22,6 +22,7 @@ import {
   shouldHoldForQueueStartup,
   shouldTriggerStartup,
   safeArrivalSpeed,
+  visibleBehavior,
 } from './car-physics.js';
 
 test('measures the clear distance in the direction cars travel', () => {
@@ -97,6 +98,20 @@ test('queue entry depends on an expected stop, not speed', () => {
   assert.equal(shouldEnterQueueMode(40, 0, 50, false, true, true), false);
   assert.equal(shouldEnterQueueMode(51, 0, 50, true, true), false);
   assert.equal(shouldEnterQueueMode(-1, 0, 50, true, true), false);
+  assert.equal(shouldEnterQueueMode(40, 0, 50, true, false, false, false), false);
+});
+
+test('visible behavior labels are mutually exclusive and follow display priority', () => {
+  const behavior = overrides => visibleBehavior({
+    startupRemaining: 0, queueMode: false, speed: 5, stoppedSpeed: .05,
+    creeping: false, braking: false, ...overrides,
+  });
+
+  assert.equal(behavior({}), 'Driving');
+  assert.equal(behavior({ braking: true }), 'Brake');
+  assert.equal(behavior({ creeping: true, braking: true }), 'Creep');
+  assert.equal(behavior({ queueMode: true, speed: 0, creeping: true, braking: true }), 'Queue');
+  assert.equal(behavior({ startupRemaining: 1.236, queueMode: true, speed: 0, creeping: true, braking: true }), 'Startup 1.24 s');
 });
 
 test('identifies cars approaching a red stop line', () => {
