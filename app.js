@@ -3,6 +3,7 @@ import {
   canCloseGapOnRed,
   cannotStopBeforeLine,
   distanceToCarAhead,
+  entranceGap,
   followsThreeStripeRule,
   hasStartingClearance,
   hasRoomForArrival,
@@ -13,6 +14,7 @@ import {
   shouldBrakeForTarget,
   shouldEnterQueueMode,
   shouldTriggerStartup,
+  safeArrivalSpeed,
 } from './car-physics.js';
 
 const CAR_LENGTH_MIN = 3.8;
@@ -112,7 +114,7 @@ function vehicleProfile(index) {
   return vehicleProfiles[index];
 }
 
-function createCar(position, laneIndex, profileIndex) {
+function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
   const profile = vehicleProfile(profileIndex);
   const node = document.createElement('div');
   node.className = 'car';
@@ -120,7 +122,7 @@ function createCar(position, laneIndex, profileIndex) {
   node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
-    id: nextCarId++, position, length: profile.length, speed: 0,
+    id: nextCarId++, position, length: profile.length, speed: initialSpeed,
     startupTriggered: false, startupClock: 0, crossed: false, braking: false,
     queueMode: false, releasedFromQueue: false,
     committedToCross: false, node,
@@ -153,7 +155,7 @@ function fillInitialLane(laneIndex, gap) {
     car.queueMode = true;
     cars.push(car);
   }
-  return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS };
+  return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS, pendingArrivals: [] };
 }
 
 function reset() {
@@ -348,12 +350,37 @@ function beginRedPhase() {
   }
 }
 
-function addArrivingCars() {
+function queueArrivingCars() {
   for (const lane of state.lanes) {
-    const furthestPosition = lane.cars.reduce((furthest, car) => Math.max(furthest, car.position), ROAD_MIN);
-    if (hasRoomForArrival(furthestPosition, ROAD_MAX, SPAWN_BUFFER)) {
-      lane.cars.push(createCar(ROAD_MAX, lane.index, lane.nextProfile++));
-    }
+    lane.pendingArrivals.push({ profileIndex: lane.nextProfile++, arrivalTime: state.elapsed });
+  }
+}
+
+function materializeArrivingCars() {
+  for (const lane of state.lanes) {
+    const pending = lane.pendingArrivals[0];
+    if (!pending) continue;
+
+    const leader = lane.cars.reduce((furthest, car) => (
+      !furthest || car.position > furthest.position ? car : furthest
+    ), undefined);
+    const arrivingLength = vehicleProfile(pending.profileIndex).length;
+    const gap = leader
+      ? entranceGap(leader.position, ROAD_MAX, arrivingLength, leader.length)
+      : Infinity;
+    if (leader && !hasRoomForArrival(leader.position, ROAD_MAX, SPAWN_BUFFER)) continue;
+    if (gap < settings.topGap) continue;
+
+    const initialSpeed = safeArrivalSpeed(
+      gap,
+      leader?.speed || 0,
+      settings.speedLimit / 3.6,
+      settings.topGap,
+      BRAKE_RATE,
+      DRIVER_RESPONSE_TIME,
+    );
+    lane.cars.push(createCar(ROAD_MAX, lane.index, pending.profileIndex, initialSpeed));
+    lane.pendingArrivals.shift();
   }
 }
 
@@ -374,9 +401,10 @@ function tick(timestamp) {
   state.lanes.forEach(lane => updateLane(lane, dt));
   const arrivalInterval = 1 / settings.arrivalRate;
   while (state.arrivalClock >= arrivalInterval) {
-    addArrivingCars();
+    queueArrivingCars();
     state.arrivalClock -= arrivalInterval;
   }
+  materializeArrivingCars();
   render(); updateUI(); requestAnimationFrame(tick);
 }
 
@@ -467,6 +495,12 @@ function updateUI() {
   el('simTime').textContent = `${mins}:${(state.elapsed % 60).toFixed(1).padStart(4, '0')}`;
   const a = state.lanes[0]?.crossed || 0, b = state.lanes[1]?.crossed || 0;
   el('topCrossed').textContent = a; el('bottomCrossed').textContent = b;
+  const pendingA = state.lanes[0]?.pendingArrivals.length || 0;
+  const pendingB = state.lanes[1]?.pendingArrivals.length || 0;
+  for (const [counter, count] of [[el('topArrivalQueue'), pendingA], [el('bottomArrivalQueue'), pendingB]]) {
+    counter.hidden = count === 0;
+    counter.textContent = `+${count} waiting`;
+  }
   el('playBtn').disabled = state.running; el('stopBtn').disabled = !state.running;
   el('playBtn').querySelector('span:last-child').textContent = state.elapsed ? 'Resume' : 'Play';
 }

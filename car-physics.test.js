@@ -7,6 +7,7 @@ import {
   canReleaseFromQueue,
   cannotStopBeforeLine,
   distanceToCarAhead,
+  entranceGap,
   followsThreeStripeRule,
   hasStartingClearance,
   hasRoomForArrival,
@@ -19,6 +20,7 @@ import {
   shouldBrakeForTarget,
   shouldEnterQueueMode,
   shouldTriggerStartup,
+  safeArrivalSpeed,
 } from './car-physics.js';
 
 test('measures the clear distance in the direction cars travel', () => {
@@ -91,6 +93,21 @@ test('allows an arrival only while the end of a lane has room', () => {
   assert.equal(hasRoomForArrival(101.9, 110, 8), true);
   assert.equal(hasRoomForArrival(102, 110, 8), false);
   assert.equal(hasRoomForArrival(109, 110, 8), false);
+});
+
+test('measures the actual bumper gap available at the lane entrance', () => {
+  assert.equal(entranceGap(100, 110, 4, 6), 5);
+});
+
+test('arrival speed follows nearby traffic and uses extra distance to approach faster', () => {
+  const parameters = [30 / 3.6, 2, 5.5, 0.8];
+  const matchingSpeed = safeArrivalSpeed(2, 4, ...parameters);
+  const distantSpeed = safeArrivalSpeed(30, 0, ...parameters);
+
+  assert.ok(Math.abs(matchingSpeed - 4) < 0.001);
+  assert.ok(distantSpeed > 0);
+  assert.ok(distantSpeed <= 30 / 3.6);
+  assert.equal(safeArrivalSpeed(Infinity, 0, ...parameters), 30 / 3.6);
 });
 
 test('samples driver characteristics uniformly between their bounds', () => {

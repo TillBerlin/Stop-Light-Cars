@@ -31,9 +31,10 @@
           <p class="view-note" id="viewNote">Queue detail · showing the area nearest the stop line</p>
           <div class="road" id="road">
             <div class="road-distance-field" id="roadDistanceField" aria-hidden="true"></div>
-            <div class="lane lane-top" id="laneTop"><div class="lane-name">LANE A</div></div>
+            <div class="lane lane-top" id="laneTop"><div class="arrival-queue" id="topArrivalQueue" role="status" hidden></div><div class="lane-name">LANE A</div></div>
             <div class="lane-divider"></div>
             <div class="lane lane-bottom" id="laneBottom">
+              <div class="arrival-queue" id="bottomArrivalQueue" role="status" hidden></div>
               <div class="stripe-field" id="stripeField" aria-hidden="true"></div>
               <div class="lane-name">LANE B</div>
             </div>
