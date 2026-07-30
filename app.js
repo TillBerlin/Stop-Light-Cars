@@ -36,17 +36,16 @@ const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 const STRIPE_SPACING = 2;
 const STRIPE_ZONE_START = 0;
-const STRIPE_ZONE_END = 50;
 const DISTANCE_MARKER_SPACING = 10;
 const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
 const settings = {
-  startupMin: 1, startupMax: 2,
-  accelerationMin: 1.5, accelerationMax: 2.5,
+  startupMin: 1.7, startupMax: 2,
+  accelerationMin: 1.8, accelerationMax: 2.2,
   clearingMin: 4, clearingMax: 4,
-  phase: 12, arrivalRate: .5, speedLimit: 30, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
-  stripeCompliance: 100,
+  phase: 12, arrivalRate: .5, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
+  stripeCompliance: 100, stripeLength: 50, simulationSpeed: 1,
 };
 const controlDefinitions = [
   { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
@@ -57,6 +56,8 @@ const controlDefinitions = [
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
   { key: 'stripeCompliance', label: '3-stripes compliance', min: 0, max: 100, step: 10, unit: '%', note: 'Share of Lane B drivers', className: 'bottom' },
+  { key: 'stripeLength', label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm', note: 'Adjusts the number of stripes', className: 'bottom' },
+  { key: 'simulationSpeed', label: 'Simulation speed', min: 0, max: 4, step: 1, unit: '×', note: '0.5× · 1× · 2× · 4× · 8×', values: [.5, 1, 2, 4, 8] },
 ];
 
 const el = id => document.getElementById(id);
@@ -84,17 +85,21 @@ for (const def of controlDefinitions) {
     controls.appendChild(wrapper);
     continue;
   }
-  wrapper.innerHTML = `<label for="${def.key}"><span>${def.label}</span><output>${settings[def.key].toFixed(decimals)} ${def.unit}</output></label><input id="${def.key}" type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${settings[def.key]}"><small>${def.note}</small>`;
+  const displayedValue = def.values ? def.values.indexOf(settings[def.key]) : settings[def.key];
+  const formattedValue = def.values ? `${settings[def.key]}${def.unit}` : `${settings[def.key].toFixed(decimals)} ${def.unit}`;
+  wrapper.innerHTML = `<label for="${def.key}"><span>${def.label}</span><output>${formattedValue}</output></label><input id="${def.key}" type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${displayedValue}"><small>${def.note}</small>`;
   const input = wrapper.querySelector('input');
   const output = wrapper.querySelector('output');
   input.addEventListener('input', () => {
-    settings[def.key] = Number(input.value);
-    output.textContent = `${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}`;
+    settings[def.key] = def.values ? def.values[Number(input.value)] : Number(input.value);
+    output.textContent = def.values
+      ? `${settings[def.key]}${def.unit}`
+      : `${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}`;
     if (def.key === 'topGap') el('topGapMetric').textContent = `${settings.topGap.toFixed(1)}m`;
     if (def.key === 'phase' && !state.running) {
       state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.phase;
     }
-    if ((def.key === 'topGap' || def.key === 'bottomGap' || def.key === 'stripeCompliance') && state.elapsed === 0) reset();
+    if ((def.key === 'topGap' || def.key === 'bottomGap' || def.key === 'stripeCompliance' || def.key === 'stripeLength') && state.elapsed === 0) reset();
     updateUI();
   });
   controls.appendChild(wrapper);
@@ -146,7 +151,7 @@ function fillInitialLane(laneIndex, gap) {
       ? STOP_POSITION + length / 2 + STOP_LINE_BUFFER
       : cars[i - 1].position + cars[i - 1].length / 2 + settings.topGap + length / 2;
     const restingGap = laneIndex === 1
-      ? restingDistanceForPosition(normalPosition, car.followsThreeStripeRule, STRIPE_ZONE_START, STRIPE_ZONE_END, settings.topGap, gap)
+      ? restingDistanceForPosition(normalPosition, car.followsThreeStripeRule, STRIPE_ZONE_START, settings.stripeLength, settings.topGap, gap)
       : settings.topGap;
     const position = i === 0
       ? normalPosition
@@ -182,7 +187,7 @@ function updateLane(lane, dt) {
     const aheadCar = lane.cars[i - 1];
     const gap = distanceToCarAhead(current, ahead, car.length, aheadCar?.length);
     const standstillGap = lane.index === 1
-      ? restingDistanceForPosition(current.position, car.followsThreeStripeRule, STRIPE_ZONE_START, STRIPE_ZONE_END, settings.topGap, settings.bottomGap)
+      ? restingDistanceForPosition(current.position, car.followsThreeStripeRule, STRIPE_ZONE_START, settings.stripeLength, settings.topGap, settings.bottomGap)
       : settings.topGap;
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
@@ -190,7 +195,7 @@ function updateLane(lane, dt) {
     const enteringQueue = shouldEnterQueueMode(
       current.position,
       STOP_POSITION,
-      STRIPE_ZONE_END,
+      settings.stripeLength,
       signalRequiresStop,
       Boolean(ahead?.queueMode),
       car.releasedFromQueue,
@@ -314,7 +319,7 @@ function updateLane(lane, dt) {
     }
     car.position = nextPosition;
 
-    if (car.position > STRIPE_ZONE_END) car.releasedFromQueue = false;
+    if (car.position > settings.stripeLength) car.releasedFromQueue = false;
 
     if (car.committedToCross && car.position <= STOP_POSITION) car.committedToCross = false;
 
@@ -386,9 +391,14 @@ function materializeArrivingCars() {
 
 function tick(timestamp) {
   if (!state.running) return;
-  if (!state.lastFrame) state.lastFrame = timestamp;
-  const dt = Math.min((timestamp - state.lastFrame) / 1000, .05);
-  state.lastFrame = timestamp; state.elapsed += dt; state.phaseRemaining -= dt;
+  if (!state.lastFrame) {
+    state.lastFrame = timestamp;
+    requestAnimationFrame(tick);
+    return;
+  }
+  const dt = Math.min((timestamp - state.lastFrame) / 1000, .05) * settings.simulationSpeed;
+  state.lastFrame = timestamp;
+  state.elapsed += dt; state.phaseRemaining -= dt;
   state.arrivalClock += dt;
   if (state.phaseRemaining <= 0) {
     if (state.phase === 'green') beginOrangePhase();
@@ -436,7 +446,7 @@ function positionForDistance(distance, stopFraction, roadWidth, pixelsPerMeter) 
 
 function renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter) {
   const stripeField = el('stripeField');
-  const stripeCount = Math.floor((STRIPE_ZONE_END - STRIPE_ZONE_START) / STRIPE_SPACING) + 1;
+  const stripeCount = Math.floor((settings.stripeLength - STRIPE_ZONE_START) / STRIPE_SPACING) + 1;
   if (stripeField.children.length !== stripeCount) {
     stripeField.replaceChildren(...Array.from({ length: stripeCount }, () => {
       const stripe = document.createElement('i');
@@ -451,9 +461,8 @@ function renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter) {
     stripe.hidden = x < 0 || x > 100;
   });
 
-  // Traffic travels left to right. Place the sign beyond the upstream edge so
-  // it remains visually to the left of every stripe.
-  el('threeStripesSign').style.left = `${positionForDistance(STRIPE_ZONE_END, stopFraction, roadWidth, pixelsPerMeter)}%`;
+  // Keep the sign centered in the striped zone as its selected length changes.
+  el('threeStripesSign').style.left = `${positionForDistance(settings.stripeLength / 2, stopFraction, roadWidth, pixelsPerMeter)}%`;
 
   const distanceField = el('roadDistanceField');
   const markerCount = ROAD_MAX / DISTANCE_MARKER_SPACING;
