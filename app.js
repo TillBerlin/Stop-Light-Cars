@@ -13,6 +13,7 @@ import {
   restingDistanceForPosition,
   shouldBrakeForTarget,
   shouldEnterQueueMode,
+  shouldHoldForQueueStartup,
   shouldTriggerStartup,
   safeArrivalSpeed,
 } from './car-physics.js';
@@ -293,7 +294,14 @@ function updateLane(lane, dt) {
       );
     }
 
-    if (!readyToStart && current.speed < STOPPED_SPEED && !mayCreep && !closingGapOnRed) speedLimit = 0;
+    if (shouldHoldForQueueStartup(
+      car.queueMode,
+      readyToStart,
+      current.speed,
+      STOPPED_SPEED,
+      mayCreep,
+      closingGapOnRed,
+    )) speedLimit = 0;
     if (!mayCrossSignal && !ahead && current.speed < STOPPED_SPEED) speedLimit = 0;
     car.braking = shouldBrake || current.speed > speedLimit + STOPPED_SPEED;
     if (car.braking) car.speed = Math.max(0, current.speed - brakingRate * dt);

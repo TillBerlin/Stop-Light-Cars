@@ -27,6 +27,21 @@ export function canReleaseFromQueue(
   return reactionComplete && (!hasLeader || leaderHasStarted || hasClearance);
 }
 
+export function shouldHoldForQueueStartup(
+  queueMode,
+  readyToStart,
+  speed,
+  stoppedSpeed,
+  mayCreep,
+  closingGapOnRed,
+) {
+  return queueMode
+    && !readyToStart
+    && speed < stoppedSpeed
+    && !mayCreep
+    && !closingGapOnRed;
+}
+
 export function availableStartingBuffer(gap, normalBaseGap) {
   return Math.max(0, gap - normalBaseGap);
 }
