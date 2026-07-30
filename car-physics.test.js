@@ -19,6 +19,7 @@ import {
   restingDistanceForPosition,
   shouldBrakeForTarget,
   shouldEnterQueueMode,
+  shouldHoldForQueueStartup,
   shouldTriggerStartup,
   safeArrivalSpeed,
 } from './car-physics.js';
@@ -65,6 +66,29 @@ test('queue release always requires reaction time but clearance can substitute f
   assert.equal(canReleaseFromQueue(false, false, false, false), false);
   assert.equal(canReleaseFromQueue(false, true, true, false), false);
   assert.equal(canReleaseFromQueue(false, true, false, true), false);
+});
+
+test('does not hold a stopped non-queued car behind the queue startup timer', () => {
+  const currentSpeed = 0;
+  const speedLimit = shouldHoldForQueueStartup(
+    false,
+    false,
+    currentSpeed,
+    0.01,
+    false,
+    false,
+  ) ? 0 : 30 / 3.6;
+  const speedAfterUpdate = Math.min(speedLimit, currentSpeed + 2 * 0.1);
+
+  assert.ok(speedAfterUpdate > 0);
+});
+
+test('holds only queued cars until their startup timer is ready', () => {
+  assert.equal(shouldHoldForQueueStartup(true, false, 0, 0.01, false, false), true);
+  assert.equal(shouldHoldForQueueStartup(false, false, 0, 0.01, false, false), false);
+  assert.equal(shouldHoldForQueueStartup(true, true, 0, 0.01, false, false), false);
+  assert.equal(shouldHoldForQueueStartup(true, false, 0, 0.01, true, false), false);
+  assert.equal(shouldHoldForQueueStartup(true, false, 0, 0.01, false, true), false);
 });
 
 test('queue entry depends on an expected stop, not speed', () => {
