@@ -16,7 +16,6 @@ import {
   shouldHoldForQueueStartup,
   shouldTriggerStartup,
   safeArrivalSpeed,
-  visibleBehavior,
 } from './car-physics.js';
 
 const CAR_LENGTH_MIN = 3.8;
@@ -127,13 +126,13 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
   const node = document.createElement('div');
   node.className = 'car';
   node.style.setProperty('--car-color', profile.color);
-  node.innerHTML = '<span class="car-behavior">Driving</span><div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
+  node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
     id: nextCarId++, position, length: profile.length, speed: initialSpeed,
     startupTriggered: false, startupClock: 0, crossed: false, braking: false,
     queueMode: false, releasedFromQueue: false,
-    committedToCross: false, creeping: false, behavior: 'Driving', node,
+    committedToCross: false, node,
     startup: randomBetween(settings.startupMin, settings.startupMax),
     acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
     clearing: randomBetween(settings.clearingMin, settings.clearingMax),
@@ -161,9 +160,6 @@ function fillInitialLane(laneIndex, gap) {
       : cars[i - 1].position + cars[i - 1].length / 2 + restingGap + length / 2;
     car.position = position;
     car.queueMode = true;
-    car.behavior = 'Queue';
-    car.node.querySelector('.car-behavior').textContent = car.behavior;
-    car.node.setAttribute('aria-label', `Car: ${car.behavior}`);
     cars.push(car);
   }
   return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS, pendingArrivals: [] };
@@ -198,11 +194,6 @@ function updateLane(lane, dt) {
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
     const signalRequiresStop = !mayCrossSignal;
-    const distanceToLine = current.position - (STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER);
-    const restingPositionReached = current.speed < STOPPED_SPEED && (
-      (ahead && ahead.speed < STOPPED_SPEED && gap <= standstillGap + .1)
-      || (!ahead && distanceToLine <= .1)
-    );
     const enteringQueue = shouldEnterQueueMode(
       current.position,
       STOP_POSITION,
@@ -210,7 +201,6 @@ function updateLane(lane, dt) {
       signalRequiresStop,
       Boolean(ahead?.queueMode),
       car.releasedFromQueue,
-      restingPositionReached,
     );
     if (enteringQueue) {
       if (!car.queueMode) {
@@ -260,16 +250,6 @@ function updateLane(lane, dt) {
     let speedLimit = settings.speedLimit / 3.6;
     let shouldBrake = false;
     let brakingRate = BRAKE_RATE;
-    const closingDistance = ahead && ahead.speed < STOPPED_SPEED
-      ? gap - standstillGap
-      : distanceToLine;
-    const creepTargetAhead = Boolean(ahead && ahead.speed < STOPPED_SPEED);
-    const creepTargetLine = signalRequiresStop && !ahead;
-    const creepIntent = !car.queueMode
-      && (creepTargetAhead || creepTargetLine)
-      && closingDistance > .1
-      && closingDistance <= car.clearing
-      && current.speed <= CREEP_SPEED + STOPPED_SPEED;
 
     if (ahead) {
       const safetyDistance = movingSafetyDistance(
@@ -296,10 +276,15 @@ function updateLane(lane, dt) {
         EMERGENCY_DISTANCE,
         EMERGENCY_CLOSING_SPEED,
       )) brakingRate = EMERGENCY_BRAKE_RATE;
-      if (ahead.speed < STOPPED_SPEED && gap - standstillGap <= car.clearing) speedLimit = CREEP_SPEED;
+      if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
     }
 
     if (!mayCrossSignal && current.position > STOP_POSITION) {
+      // A driver who intends to stop may coast until braking is necessary, but
+      // must not accelerate toward an empty red light. When there is a queue
+      // ahead, it may still close that gap before stopping at the line.
+      if (!closingGapOnRed && !mayCreep) speedLimit = Math.min(speedLimit, current.speed);
+      const distanceToLine = current.position - (STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER);
       shouldBrake ||= shouldBrakeForTarget(
         distanceToLine,
         current.speed,
@@ -317,10 +302,10 @@ function updateLane(lane, dt) {
       mayCreep,
       closingGapOnRed,
     )) speedLimit = 0;
-    if (!mayCrossSignal && !ahead && current.speed < STOPPED_SPEED && !creepIntent) speedLimit = 0;
+    if (!mayCrossSignal && !ahead && current.speed < STOPPED_SPEED) speedLimit = 0;
     car.braking = shouldBrake || current.speed > speedLimit + STOPPED_SPEED;
     if (car.braking) car.speed = Math.max(0, current.speed - brakingRate * dt);
-    else if (allowed || creepIntent || current.speed >= STOPPED_SPEED) {
+    else if (allowed || current.speed >= STOPPED_SPEED) {
       car.speed = Math.min(speedLimit, current.speed + car.acceleration * dt);
     } else car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
 
@@ -342,19 +327,6 @@ function updateLane(lane, dt) {
       }
     }
     car.position = nextPosition;
-    car.creeping = creepIntent && car.speed >= STOPPED_SPEED && !car.braking;
-
-    const startupRemaining = car.queueMode && car.startupTriggered
-      ? Math.max(0, car.startup - car.startupClock)
-      : 0;
-    car.behavior = visibleBehavior({
-      startupRemaining,
-      queueMode: car.queueMode && !car.releasedFromQueue,
-      speed: car.speed,
-      stoppedSpeed: STOPPED_SPEED,
-      creeping: car.creeping,
-      braking: car.braking && car.speed > .1,
-    });
 
     if (car.position > settings.stripeLength) car.releasedFromQueue = false;
 
@@ -486,9 +458,6 @@ function render() {
     car.node.style.setProperty('--car-width', `${carWidth}px`);
     car.node.style.setProperty('--car-height', `${carWidth * 24 / 42}px`);
     car.node.classList.toggle('braking', car.braking && car.speed > .1);
-    const behaviorNode = car.node.querySelector('.car-behavior');
-    behaviorNode.textContent = car.behavior;
-    car.node.setAttribute('aria-label', `Car: ${car.behavior}`);
     car.node.style.opacity = x < -5 || x > 103 ? '0' : '1';
   }
 }
