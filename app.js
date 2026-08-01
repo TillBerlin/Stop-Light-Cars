@@ -17,6 +17,7 @@ import {
   shouldTriggerStartup,
   safeArrivalSpeed,
 } from './car-physics.js';
+import { carStatusLabel } from './car-status.js';
 
 const CAR_LENGTH_MIN = 3.8;
 const CAR_LENGTH_MAX = 5.2;
@@ -126,7 +127,7 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
   const node = document.createElement('div');
   node.className = 'car';
   node.style.setProperty('--car-color', profile.color);
-  node.innerHTML = '<div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
+  node.innerHTML = '<span class="car-status">WAIT</span><div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
   (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
     id: nextCarId++, position, length: profile.length, speed: initialSpeed,
@@ -459,7 +460,14 @@ function render() {
     car.node.style.setProperty('--car-height', `${carWidth * 24 / 42}px`);
     car.node.classList.toggle('braking', car.braking && car.speed > .1);
     car.node.style.opacity = x < -5 || x > 103 ? '0' : '1';
+    renderCarStatus(car);
   }
+}
+
+function renderCarStatus(car) {
+  const label = car.node.querySelector('.car-status');
+  const status = carStatusLabel(car, STOPPED_SPEED);
+  if (label.textContent !== status) label.textContent = status;
 }
 
 function positionForDistance(distance, stopFraction, roadWidth, pixelsPerMeter) {
