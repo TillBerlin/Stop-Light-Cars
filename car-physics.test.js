@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  availableStartingBuffer,
   canCloseGapOnRed,
   canReleaseFromQueue,
   cannotStopBeforeLine,
@@ -42,6 +41,12 @@ test('starting clearance becomes available only when a green-light gap meets the
   assert.equal(hasStartingClearance('orange', 6.1, 6), false);
 });
 
+test('starting clearance tolerates arithmetic noise at any configured clearing distance', () => {
+  assert.equal(hasStartingClearance('green', 6 - 1e-12, 6), true);
+  assert.equal(hasStartingClearance('green', 7.3 - 1e-12, 7.3), true);
+  assert.equal(hasStartingClearance('green', 7.3 - 1e-6, 7.3), false);
+});
+
 test('triggers each startup timer once its leader dependency is cleared', () => {
   assert.equal(shouldTriggerStartup('green', false, false, false, false), true);
   assert.equal(shouldTriggerStartup('green', false, true, false, true), true);
@@ -51,11 +56,9 @@ test('triggers each startup timer once its leader dependency is cleared', () => 
   assert.equal(shouldTriggerStartup('green', true, false, false, false), false);
 });
 
-test('starting clearance uses only space above the common base gap', () => {
-  assert.equal(availableStartingBuffer(6, 2), 4);
-  assert.equal(availableStartingBuffer(1, 2), 0);
-  assert.equal(hasStartingClearance('green', availableStartingBuffer(6.1, 2), 4), true);
-  assert.equal(hasStartingClearance('green', availableStartingBuffer(6, 2), 4), true);
+test('starting clearance uses the entire bumper-to-bumper gap', () => {
+  assert.equal(hasStartingClearance('green', 6, 5), true);
+  assert.equal(hasStartingClearance('green', 4.9, 5), false);
 });
 
 test('queue release always requires reaction time but clearance can substitute for leader movement', () => {
