@@ -1,5 +1,4 @@
 import {
-  availableStartingBuffer,
   canCloseGapOnRed,
   cannotStopBeforeLine,
   distanceToCarAhead,
@@ -212,9 +211,8 @@ function updateLane(lane, dt) {
       car.releasedFromQueue = false;
     }
 
-    const startingBuffer = availableStartingBuffer(gap, settings.topGap);
     const hasClearance = Boolean(ahead)
-      && hasStartingClearance(state.phase, startingBuffer, car.clearing);
+      && hasStartingClearance(state.phase, gap, car.clearing);
     const mayCreep = car.queueMode && ahead && gap > standstillGap && ahead.speed < STOPPED_SPEED;
     const closingGapOnRed = canCloseGapOnRed(
       state.phase,

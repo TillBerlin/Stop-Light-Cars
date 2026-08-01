@@ -3,7 +3,9 @@ export function distanceToCarAhead(car, carAhead, carLength, carAheadLength = ca
 }
 
 export function hasStartingClearance(phase, distance, clearingDistance) {
-  return phase === 'green' && distance >= clearingDistance;
+  const scale = Math.max(1, Math.abs(distance), Math.abs(clearingDistance));
+  const tolerance = Math.max(1e-9, Number.EPSILON * scale * 8);
+  return phase === 'green' && distance >= clearingDistance - tolerance;
 }
 
 export function shouldTriggerStartup(
@@ -40,10 +42,6 @@ export function shouldHoldForQueueStartup(
     && speed < stoppedSpeed
     && !mayCreep
     && !closingGapOnRed;
-}
-
-export function availableStartingBuffer(gap, normalBaseGap) {
-  return Math.max(0, gap - normalBaseGap);
 }
 
 export function shouldEnterQueueMode(
