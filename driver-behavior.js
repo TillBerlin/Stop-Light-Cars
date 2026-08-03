@@ -40,6 +40,40 @@ export function timeToContact(gap, followerSpeed, leaderSpeed) {
   return closingSpeed > 0 ? gap / closingSpeed : Infinity;
 }
 
+export function continuousAcceleration({
+  speed,
+  targetSpeed,
+  gap = Infinity,
+  desiredGap = 0,
+  leaderSpeed = targetSpeed,
+  maximumAcceleration,
+  comfortableDeceleration,
+}) {
+  const freeRoadFactor = targetSpeed > 0 ? (speed / targetSpeed) ** 4 : 1;
+  const closingSpeed = speed - leaderSpeed;
+  const dynamicGap = Math.max(
+    0,
+    desiredGap + speed * closingSpeed
+      / (2 * Math.sqrt(maximumAcceleration * comfortableDeceleration)),
+  );
+  const interactionFactor = Number.isFinite(gap)
+    ? (dynamicGap / Math.max(gap, .01)) ** 2
+    : 0;
+  const acceleration = maximumAcceleration * (1 - freeRoadFactor - interactionFactor);
+  return Math.max(-comfortableDeceleration, Math.min(maximumAcceleration, acceleration));
+}
+
+export function requiredCollisionAvoidanceAcceleration(gap, followerSpeed, leaderSpeed) {
+  const closingSpeed = Math.max(0, followerSpeed - leaderSpeed);
+  if (closingSpeed === 0 || !Number.isFinite(gap)) return 0;
+  return -(closingSpeed ** 2) / (2 * Math.max(gap, .01));
+}
+
+export function limitAccelerationByJerk(current, requested, maximumJerk, dt) {
+  const maximumChange = maximumJerk * dt;
+  return Math.max(current - maximumChange, Math.min(current + maximumChange, requested));
+}
+
 export function desiredControl({
   activeControl,
   gap,
