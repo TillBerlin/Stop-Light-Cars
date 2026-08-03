@@ -58,6 +58,8 @@ test('uses time-to-contact hysteresis while emergency braking', () => {
     activeControl,
     gap: 3,
     desiredGap: 2,
+    brakingGap: 2,
+    emergencyGap: 2,
     followerSpeed: 4,
     leaderSpeed: 2,
     mustStop: false,
@@ -73,10 +75,50 @@ test('accelerates into a green-light gap larger than the normal safety distance'
     activeControl: CONTROL.ACCELERATE,
     gap: 6,
     desiredGap: 2,
+    brakingGap: 2,
+    emergencyGap: 1,
     followerSpeed: 0,
     leaderSpeed: 0,
     mustStop: false,
     targetDistance: 4,
     creepSpeed: 1.5,
   }), CONTROL.ACCELERATE);
+});
+
+test('uses comfort corrections rather than emergency braking below the preferred headway', () => {
+  const request = (followerSpeed, leaderSpeed) => desiredControl({
+    activeControl: CONTROL.HOLD,
+    gap: 8,
+    desiredGap: 23,
+    brakingGap: 2,
+    emergencyGap: 1,
+    followerSpeed,
+    leaderSpeed,
+    mustStop: false,
+    targetDistance: Infinity,
+    creepSpeed: 1.5,
+  });
+
+  assert.equal(request(13.9, 13.9), CONTROL.COAST);
+  assert.equal(request(13.9, 14.9), CONTROL.COAST);
+  assert.equal(request(13.9, 13.4), CONTROL.COMFORT_BRAKE);
+});
+
+test('brakes inside the physical envelope and reserves emergency braking for short TTC', () => {
+  const request = overrides => desiredControl({
+    activeControl: CONTROL.HOLD,
+    gap: 12,
+    desiredGap: 23,
+    brakingGap: 13,
+    emergencyGap: 5,
+    followerSpeed: 10,
+    leaderSpeed: 9,
+    mustStop: false,
+    targetDistance: Infinity,
+    creepSpeed: 1.5,
+    ...overrides,
+  });
+
+  assert.equal(request({}), CONTROL.BRAKE);
+  assert.equal(request({ gap: 2, followerSpeed: 13, leaderSpeed: 9 }), CONTROL.EMERGENCY_BRAKE);
 });

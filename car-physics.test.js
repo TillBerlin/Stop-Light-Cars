@@ -16,6 +16,7 @@ import {
   movingSafetyDistance,
   needsEmergencyBraking,
   predictedStopPosition,
+  preferredFollowingDistance,
   queuedStopPosition,
   randomBetween,
   relativeStoppingDistance,
@@ -212,9 +213,10 @@ test('increases moving safety distance with closing speed, not shared forward sp
   assert.equal(movingSafetyDistance(6, .2, .2, 5, .5), 6);
 });
 
-test('adds a human time headway while cars are moving at the same speed', () => {
-  assert.equal(movingSafetyDistance(2, 10, 10, 5, 1, 0, 1.5), 17);
-  assert.equal(movingSafetyDistance(2, 0, 0, 5, 1, 0, 1.5), 2);
+test('keeps preferred headway separate from the physical braking envelope', () => {
+  assert.equal(movingSafetyDistance(2, 10, 10, 5, 1), 2);
+  assert.equal(preferredFollowingDistance(2, 10, 1.5), 17);
+  assert.equal(preferredFollowingDistance(2, 0, 1.5), 2);
 });
 
 test('limits an arriving car to a speed that preserves its moving headway', () => {

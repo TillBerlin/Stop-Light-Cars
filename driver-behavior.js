@@ -9,6 +9,7 @@ export const CONTROL = Object.freeze({
   ACCELERATE: 'accelerate',
   HOLD: 'hold',
   COAST: 'coast',
+  COMFORT_BRAKE: 'comfort-brake',
   BRAKE: 'brake',
   CREEP: 'creep',
   EMERGENCY_BRAKE: 'emergency-brake',
@@ -18,9 +19,10 @@ const PRIORITY = {
   [CONTROL.ACCELERATE]: 0,
   [CONTROL.HOLD]: 1,
   [CONTROL.COAST]: 2,
+  [CONTROL.COMFORT_BRAKE]: 3,
   [CONTROL.CREEP]: 2,
-  [CONTROL.BRAKE]: 3,
-  [CONTROL.EMERGENCY_BRAKE]: 4,
+  [CONTROL.BRAKE]: 4,
+  [CONTROL.EMERGENCY_BRAKE]: 5,
 };
 
 export function startupOpportunity({ phase, hasLeader, gap, clearingDistance, leaderMovement }) {
@@ -42,25 +44,38 @@ export function desiredControl({
   activeControl,
   gap,
   desiredGap,
+  brakingGap,
+  emergencyGap,
   followerSpeed,
   leaderSpeed,
   mustStop,
   targetDistance,
   creepSpeed,
+  minimumEmergencyClosingSpeed = .5,
 }) {
   const ttc = timeToContact(gap, followerSpeed, leaderSpeed);
-  const emergencyThreshold = activeControl === CONTROL.EMERGENCY_BRAKE ? 2 : 1.2;
-  if (ttc <= emergencyThreshold || gap <= Math.max(.5, desiredGap * .35)) {
+  const closingSpeed = followerSpeed - leaderSpeed;
+  const emergencyThreshold = activeControl === CONTROL.EMERGENCY_BRAKE ? 1.5 : .8;
+  const emergencyBrakingEnvelopeReached = gap <= emergencyGap;
+  const emergencyAlreadyActive = activeControl === CONTROL.EMERGENCY_BRAKE;
+  if (closingSpeed >= minimumEmergencyClosingSpeed
+    && ttc <= emergencyThreshold
+    && (emergencyBrakingEnvelopeReached || emergencyAlreadyActive)) {
     return CONTROL.EMERGENCY_BRAKE;
   }
 
-  if (mustStop && targetDistance <= desiredGap) {
-    if (followerSpeed <= creepSpeed && targetDistance > .15) return CONTROL.CREEP;
+  if (mustStop && targetDistance <= .15) return CONTROL.BRAKE;
+  if (mustStop && followerSpeed <= creepSpeed && targetDistance <= desiredGap) {
+    if (targetDistance > .15) return CONTROL.CREEP;
     return CONTROL.BRAKE;
   }
 
-  if (gap < desiredGap) return CONTROL.BRAKE;
-  if (gap < desiredGap * 1.15) return activeControl === CONTROL.BRAKE ? CONTROL.BRAKE : CONTROL.COAST;
+  // The physical braking envelope and the preferred time headway serve
+  // different purposes. Crossing the former requires braking; falling short
+  // of the latter merely calls for a comfortable correction.
+  if (gap <= brakingGap) return CONTROL.BRAKE;
+  if (gap < desiredGap && closingSpeed > 0) return CONTROL.COMFORT_BRAKE;
+  if (gap < desiredGap * 1.15) return CONTROL.COAST;
   if (gap < desiredGap * 1.3) return CONTROL.HOLD;
   return CONTROL.ACCELERATE;
 }

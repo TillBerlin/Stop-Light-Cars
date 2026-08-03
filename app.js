@@ -9,6 +9,7 @@ import {
   movingSafetyDistance,
   minimumFollowingPosition,
   predictedStopPosition,
+  preferredFollowingDistance,
   queuedStopPosition,
   randomBetween,
   restingDistanceForPosition,
@@ -41,6 +42,7 @@ const INITIAL_CARS = 10;
 // reach a stopped leader before their gentle braking can finish.
 const BRAKE_RATE = 2.5;
 const EMERGENCY_BRAKE_RATE = 9;
+const MINIMUM_EMERGENCY_CLOSING_SPEED = .5;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
 const ORANGE_DURATION = 1;
@@ -54,6 +56,7 @@ const MOVEMENT_WINDOW = .2;
 const STOP_WINDOW = .1;
 const STOP_POSITION_TOLERANCE = .15;
 const COAST_RATE = .6;
+const COMFORT_BRAKE_RATE = 1.2;
 const CREEP_ACCELERATION = .6;
 const STRIPE_SPACING = 2;
 const STRIPE_ZONE_START = 0;
@@ -336,11 +339,14 @@ function updateLane(lane, dt) {
     }
     let speedLimit = settings.speedLimit / 3.6;
     let desiredGap = settings.topGap;
+    let brakingGap = 0;
+    let emergencyGap = 0;
     let targetDistance = Infinity;
 
     if (ahead) {
-      const safetyDistance = movingSafetyDistance(
-        expectsToStop ? standstillGap : settings.topGap,
+      const baseFollowingGap = expectsToStop ? standstillGap : settings.topGap;
+      brakingGap = movingSafetyDistance(
+        baseFollowingGap,
         current.speed,
         ahead.speed,
         BRAKE_RATE,
@@ -348,9 +354,23 @@ function updateLane(lane, dt) {
         ahead.control === CONTROL.EMERGENCY_BRAKE
           ? EMERGENCY_BRAKE_RATE
           : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
+      );
+      emergencyGap = movingSafetyDistance(
+        baseFollowingGap,
+        current.speed,
+        ahead.speed,
+        EMERGENCY_BRAKE_RATE,
+        car.reactionTime,
+        ahead.control === CONTROL.EMERGENCY_BRAKE
+          ? EMERGENCY_BRAKE_RATE
+          : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
+      );
+      const preferredGap = preferredFollowingDistance(
+        settings.topGap,
+        current.speed,
         MOVING_TIME_HEADWAY,
       );
-      desiredGap = desiredFollowingDistance(safetyDistance, standstillGap, expectsToStop);
+      desiredGap = desiredFollowingDistance(preferredGap, standstillGap, expectsToStop);
       const targetGap = expectsToStop ? standstillGap : settings.topGap;
       targetDistance = gap - targetGap;
       if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
@@ -370,20 +390,23 @@ function updateLane(lane, dt) {
         activeControl: car.control,
         gap,
         desiredGap,
+        brakingGap,
+        emergencyGap,
         followerSpeed: current.speed,
         leaderSpeed: ahead?.speed || 0,
         mustStop: signalRequiresStop || Boolean(ahead?.queueMode),
         targetDistance,
         creepSpeed: CREEP_SPEED,
+        minimumEmergencyClosingSpeed: MINIMUM_EMERGENCY_CLOSING_SPEED,
       });
-      if (expectsToStop && ahead && shouldBrakeForTarget(
+      if (requestedControl !== CONTROL.EMERGENCY_BRAKE && expectsToStop && ahead && shouldBrakeForTarget(
         targetDistance,
         current.speed,
         ahead.speed,
         BRAKE_RATE,
         car.reactionTime,
       )) requestedControl = CONTROL.BRAKE;
-      if (signalRequiresStop && !ahead && shouldBrakeForTarget(
+      if (requestedControl !== CONTROL.EMERGENCY_BRAKE && signalRequiresStop && !ahead && shouldBrakeForTarget(
         targetDistance,
         current.speed,
         0,
@@ -398,13 +421,17 @@ function updateLane(lane, dt) {
       }
     }
 
-    car.braking = car.control === CONTROL.BRAKE || car.control === CONTROL.EMERGENCY_BRAKE;
+    car.braking = car.control === CONTROL.COMFORT_BRAKE
+      || car.control === CONTROL.BRAKE
+      || car.control === CONTROL.EMERGENCY_BRAKE;
     if (car.behavior === BEHAVIOR.WAIT || car.behavior === BEHAVIOR.STARTUP) {
       car.speed = 0;
     } else if (car.control === CONTROL.EMERGENCY_BRAKE) {
       car.speed = Math.max(0, current.speed - EMERGENCY_BRAKE_RATE * dt);
     } else if (car.control === CONTROL.BRAKE) {
       car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
+    } else if (car.control === CONTROL.COMFORT_BRAKE) {
+      car.speed = Math.max(0, current.speed - COMFORT_BRAKE_RATE * dt);
     } else if (car.control === CONTROL.COAST) {
       car.speed = Math.max(0, current.speed - COAST_RATE * dt);
     } else if (car.control === CONTROL.CREEP) {
