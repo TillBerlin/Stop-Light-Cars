@@ -1,7 +1,7 @@
 const STARTUP_LABEL_INTERVAL = .2;
 
 export function carStatusLabel(car, stoppedSpeed) {
-  if (car.startupTriggered && car.speed < stoppedSpeed && car.startupClock < car.startup) {
+  if (car.behavior === 'STARTUP' && car.startupClock < car.startup) {
     // Quantizing the remaining delay keeps the label on a 0.2-second cadence
     // without changing or feeding back into the simulation state.
     const remaining = Math.max(0, car.startup - car.startupClock);
@@ -9,5 +9,7 @@ export function carStatusLabel(car, stoppedSpeed) {
       * STARTUP_LABEL_INTERVAL;
     return `STARTUP · ${displayed.toFixed(1)} s`;
   }
+  if (car.behavior === 'EMERGENCY_BRAKE') return 'EMERGENCY BRAKE';
+  if (car.behavior) return car.behavior;
   return car.speed >= stoppedSpeed ? 'DRIVE' : 'WAIT';
 }

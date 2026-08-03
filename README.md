@@ -4,9 +4,11 @@ An interactive traffic simulation showing how two queues respond to one traffic 
 
 ## Features
 
-- Ten 5-meter cars initially queue in each lane.
-- A queued car waits for its own start-up time and normally for the car ahead to start. On green, a bumper-to-bumper gap that meets the driver's clearing distance lets that driver react and start independently, so widely spaced queues can move together without skipping any driver's reaction time.
-- Cars accelerate smoothly and brake to avoid the car ahead. On red, queued cars continue closing available space until they reach their lane's resting gap.
+- Ten cars initially queue in each lane, with lengths sampled between 3.8 and 5.2 meters.
+- Drivers have persistent `WAIT`, `STARTUP`, `DRIVE`, and `EMERGENCY BRAKE` behaviors. The labels describe driver intent instead of changing whenever instantaneous speed crosses a threshold.
+- A waiting driver starts reacting on green after its leader moves at least 0.05 meters within 0.2 seconds or once the bumper gap reaches the configured clearing distance. On red or orange, a gap of twice the clearing distance also starts the reaction, allowing a car to close an unusually large queue gap without proceeding through the signal.
+- After the start-up countdown, the ordinary clearing distance must still be available. Otherwise the driver returns to `WAIT`. A driver remains stationary throughout `STARTUP`.
+- While driving, cars transition after a per-driver reaction time between accelerating, holding speed, coasting, gentle braking, low-speed queue closing, and emergency braking. Desired-gap and time-to-contact hysteresis keep small numerical changes from repeatedly reversing a decision.
 - Equal, configurable red and green phases repeat automatically, separated by a one-second orange phase. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
 - New-car demand continues in each lane at the configured rate even when its entrance is blocked. Waiting arrivals appear in an upstream counter and enter as space becomes available, at a speed based on the leader and available stopping distance. The default is 30 cars per minute, and the arrival-rate slider ranges from 10 to 60 cars per minute in increments of 5.
 - Live crossed-car counts and phase countdown.
@@ -27,21 +29,6 @@ Then open the local URL printed by Vite. To verify the production bundle locally
 ## Deploy to GitHub Pages
 
 The workflow in `.github/workflows/deploy.yml` builds the Vite application and deploys the generated `dist` directory whenever a change is merged or pushed to `main`. The workflow can also be started manually.
-- Responsive, accessible, dependency-free static application.
-
-## Run locally
-
-No build step or dependencies are required. Start any static file server in the repository root:
-
-```bash
-python3 -m http.server 4173
-```
-
-Then visit <http://localhost:4173>.
-
-## Deploy to GitHub Pages
-
-The workflow in `.github/workflows/deploy.yml` deploys the repository as a static site whenever `main` is updated.
 
 1. Create a public GitHub repository and push this project to its `main` branch.
 2. Open **Settings → Pages** in the GitHub repository.
@@ -50,8 +37,18 @@ The workflow in `.github/workflows/deploy.yml` deploys the repository as a stati
 5. The deployment job and the repository's Pages settings show the public URL, normally `https://<username>.github.io/<repository>/`.
 
 The Vite `base` option is set to `/Stop-Light-Cars/` in `vite.config.js`, matching this repository name so generated asset URLs work at the GitHub Pages project URL. If the repository is renamed, update that value to `/<new-repository-name>/` before deploying.
-Because asset links are relative, the site works both at a user/organization root and beneath a project-repository path.
 
 ## Model assumptions
 
-The simulation uses a simplified one-dimensional car-following model. Queue mode is persistent while a car expects to stop within 50 m of the line and uses the lane-specific standstill gap. It ends when the car is released on green. Outside queue mode, every driver uses Lane A's normal gap as the common base plus a speed-dependent safety distance, regardless of lane or stripe compliance. Cars may creep toward a stationary queue and use zero meters only as a hard non-overlap boundary. An orange-light decision is made independently for every car, so a follower stops whenever it can do so safely even if the car ahead proceeds. Moving cars accelerate up to the selected speed limit, brake predictively for signals and slower traffic, and brake harder when they get within four meters of a considerably slower car. This is an educational visualization rather than a traffic-engineering predictor.
+The simulation uses a simplified one-dimensional car-following model:
+
+- Each car stores its behavioral state separately from its instantaneous speed. `DRIVE` includes acceleration, constant-speed travel, coasting, gentle braking, and low-speed queue closing; emergency braking is also exposed as a visible state.
+- Reaction time is stored per driver and currently initialized to 0.5 simulation seconds for every driver. A stronger pending reaction supersedes a weaker one, so a previously scheduled gentle action cannot overwrite emergency braking.
+- The moving safety distance includes the standstill gap, distance traveled during reaction time, and the extra distance required when the follower is faster than its leader.
+- Emergency braking begins at 1.2 seconds time to contact and uses a 2-second exit threshold. The different thresholds provide hysteresis. A very short gap can also trigger it independently of time to contact.
+- Queue mode is persistent while a car expects to stop within 50 meters of the line and uses the lane-specific standstill gap. Cars can close available space on red but may not cross unless the signal permits it or they were already committed during orange.
+- The lead car targets the legal stop position when it must stop; following cars target a safe queue position behind their leader.
+- A stop is confirmed using both instantaneous speed and displacement over the previous 0.1 seconds. Within 0.15 meters of its target, a settled car is set to exactly zero speed and enters `WAIT` to avoid numerical crawling.
+- Orange-light stopping decisions are made independently for every car, so a follower may stop even if the car ahead proceeds.
+
+These rules are intended to produce an understandable educational visualization, not a calibrated traffic-engineering prediction.
