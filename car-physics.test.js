@@ -183,6 +183,28 @@ test('increases moving safety distance with closing speed, not shared forward sp
   assert.equal(movingSafetyDistance(6, .2, .2, 5, .5), 6);
 });
 
+test('starts gentle braking early enough to stop behind a standing car at road speed', () => {
+  const roadSpeed = 50 / 3.6;
+  const restingGap = 2;
+  const gentleBrakingRate = 2.5;
+  const reactionTime = .5;
+  const brakingGap = movingSafetyDistance(
+    restingGap,
+    roadSpeed,
+    0,
+    gentleBrakingRate,
+    reactionTime,
+  );
+
+  // The safety envelope includes both distance travelled during the driver's
+  // reaction and the distance consumed by the same gentle braking used in the
+  // simulation. It must be substantially longer than the old envelope based
+  // on an unrealistically strong 5.5 m/s² deceleration.
+  assert.ok(brakingGap > 47);
+  assert.equal(shouldBrakeForTarget(brakingGap, roadSpeed, 0, gentleBrakingRate, reactionTime), false);
+  assert.equal(shouldBrakeForTarget(brakingGap - restingGap, roadSpeed, 0, gentleBrakingRate, reactionTime), true);
+});
+
 test('requires emergency braking only when close and considerably faster', () => {
   assert.equal(needsEmergencyBraking(4, 10, 7, 4, 3), true);
   assert.equal(needsEmergencyBraking(4.1, 10, 7, 4, 3), false);
