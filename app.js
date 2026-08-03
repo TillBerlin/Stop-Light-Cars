@@ -194,6 +194,7 @@ function updateLane(lane, dt) {
   const snapshot = lane.cars.map(car => ({
     position: car.position,
     speed: car.speed,
+    control: car.control,
     queueMode: car.queueMode,
     releasedFromQueue: car.releasedFromQueue,
     recentMovement: recentMovement(car.movementSamples, state.elapsed, MOVEMENT_WINDOW),
@@ -279,6 +280,9 @@ function updateLane(lane, dt) {
         ahead.speed,
         BRAKE_RATE,
         car.reactionTime,
+        ahead.control === CONTROL.EMERGENCY_BRAKE
+          ? EMERGENCY_BRAKE_RATE
+          : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
       );
       targetDistance = gap - standstillGap;
       if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
