@@ -122,7 +122,18 @@ for (const def of controlDefinitions) {
 
 let nextCarId = 1;
 let vehicleProfiles = [];
-const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: null, lanes: [] };
+const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: null, lanes: [], diagnostics: null };
+
+function freshDiagnostics() {
+  return {
+    crashes: 0,
+    emergencyBrakes: 0,
+    starts: [],
+    prolongedOpenGaps: [],
+    lineCrossings: [],
+    stripedZoneStops: [],
+  };
+}
 
 function vehicleProfile(index) {
   if (!vehicleProfiles[index]) {
@@ -150,6 +161,7 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
     control: initialSpeed >= STOPPED_SPEED ? CONTROL.HOLD : CONTROL.HOLD,
     pendingControl: null, reactionTime: REACTION_TIME,
     movementSamples: [{ time: state.elapsed, position }],
+    stoppedWithOpenGapSince: null,
     startup: randomBetween(settings.startupMin, settings.startupMax),
     acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
     clearing: randomBetween(settings.clearingMin, settings.clearingMax),
@@ -185,7 +197,7 @@ function fillInitialLane(laneIndex, gap) {
 function reset() {
   document.querySelectorAll('.car').forEach(node => node.remove());
   vehicleProfiles = [];
-  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.arrivalClock = 0; state.lastFrame = null;
+  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.arrivalClock = 0; state.lastFrame = null; state.diagnostics = freshDiagnostics();
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
   updateUI(); render();
 }
@@ -258,6 +270,7 @@ function updateLane(lane, dt) {
     if (car.behavior === BEHAVIOR.STARTUP && readyToStart) {
       if (startupCanFinish(Boolean(ahead), gap, car.clearing)) {
         car.behavior = BEHAVIOR.DRIVE;
+        state.diagnostics.starts.push({ carId: car.id, lane: lane.index, time: state.elapsed });
         car.control = CONTROL.ACCELERATE;
         car.startupTriggered = false;
         if (mayCrossSignal) {
@@ -323,7 +336,11 @@ function updateLane(lane, dt) {
         car.reactionTime,
       )) requestedControl = CONTROL.BRAKE;
       scheduleControl(car, requestedControl, state.elapsed);
+      const previousControl = car.control;
       applyScheduledControl(car, state.elapsed);
+      if (previousControl !== CONTROL.EMERGENCY_BRAKE && car.control === CONTROL.EMERGENCY_BRAKE) {
+        state.diagnostics.emergencyBrakes++;
+      }
     }
 
     car.braking = car.control === CONTROL.BRAKE || car.control === CONTROL.EMERGENCY_BRAKE;
@@ -349,8 +366,19 @@ function updateLane(lane, dt) {
       // predictive braking and creeping, never by moving a car backwards.
       const collisionBoundary = ahead.position + (car.length + aheadCar.length) / 2;
       if (nextPosition < collisionBoundary) {
+        // Ignore sub-millimetre integration noise while still recording any
+        // meaningful overlap that the hard boundary has to correct.
+        if (collisionBoundary - nextPosition > .001) state.diagnostics.crashes++;
         nextPosition = collisionBoundary;
         car.speed = Math.min(car.speed, ahead.speed);
+      }
+    }
+    if (ahead && signalRequiresStop && ahead.speed < STOPPED_SPEED) {
+      const queueBoundary = aheadCar.position
+        + (car.length + aheadCar.length) / 2 + standstillGap;
+      if (current.position >= queueBoundary && nextPosition < queueBoundary) {
+        nextPosition = queueBoundary;
+        car.speed = 0;
       }
     }
     if (!mayCrossSignal && current.position > STOP_POSITION) {
@@ -360,7 +388,27 @@ function updateLane(lane, dt) {
         car.speed = 0;
       }
     }
+    if (current.position > STOP_POSITION && nextPosition <= STOP_POSITION) {
+      state.diagnostics.lineCrossings.push({
+        carId: car.id,
+        lane: lane.index,
+        time: state.elapsed,
+        phase: state.phase,
+        committedDuringOrange: car.committedToCross,
+      });
+    }
     car.position = nextPosition;
+
+    const hasLargeOpenGap = Boolean(ahead) && gap > 10 && car.speed < STOPPED_SPEED;
+    if (hasLargeOpenGap) {
+      car.stoppedWithOpenGapSince ??= state.elapsed;
+      if (state.elapsed - car.stoppedWithOpenGapSince > 3
+        && !state.diagnostics.prolongedOpenGaps.some(event => event.carId === car.id)) {
+        state.diagnostics.prolongedOpenGaps.push({ carId: car.id, lane: lane.index, time: state.elapsed, gap });
+      }
+    } else {
+      car.stoppedWithOpenGapSince = null;
+    }
     car.movementSamples.push({ time: state.elapsed, position: car.position });
     while (car.movementSamples.length > 2
       && car.movementSamples[1].time < state.elapsed - MOVEMENT_WINDOW) car.movementSamples.shift();
@@ -374,6 +422,15 @@ function updateLane(lane, dt) {
       car.control = CONTROL.HOLD;
       car.pendingControl = null;
       car.behavior = BEHAVIOR.WAIT;
+      if (state.phase === 'red' && lane.index === 1 && aheadCar
+        && car.followsThreeStripeRule
+        && car.position >= STRIPE_ZONE_START && car.position <= settings.stripeLength) {
+        state.diagnostics.stripedZoneStops.push({
+          carId: car.id,
+          time: state.elapsed,
+          gap: distanceToCarAhead(car, aheadCar, car.length, aheadCar.length),
+        });
+      }
     }
 
     if (car.position > settings.stripeLength) car.releasedFromQueue = false;
@@ -446,7 +503,13 @@ function tick(timestamp) {
   if (state.lastFrame === null) state.lastFrame = timestamp;
   let remaining = Math.min(Math.max(0, timestamp - state.lastFrame) / 1000, .05) * settings.simulationSpeed;
   state.lastFrame = timestamp;
-  while (remaining > 0) {
+  advanceSimulation(remaining);
+  render(); updateUI(); scheduleAnimation();
+}
+
+function advanceSimulation(duration) {
+  let remaining = duration;
+  while (remaining > 1e-9) {
     const dt = Math.min(remaining, .05);
     state.elapsed += dt; state.phaseRemaining -= dt;
     state.arrivalClock += dt;
@@ -467,7 +530,36 @@ function tick(timestamp) {
     materializeArrivingCars();
     remaining -= dt;
   }
-  render(); updateUI(); scheduleAnimation();
+}
+
+export function runHeadlessSimulation(duration, step = .05) {
+  while (state.elapsed < duration - 1e-9) advanceSimulation(Math.min(step, duration - state.elapsed));
+  return simulationSnapshot();
+}
+
+function simulationSnapshot() {
+  return {
+    elapsed: state.elapsed,
+    phase: state.phase,
+    running: state.running,
+    diagnostics: structuredClone(state.diagnostics),
+    lanes: state.lanes.map(lane => ({
+      crossed: lane.crossed,
+      pendingArrivals: lane.pendingArrivals.length,
+      cars: lane.cars.map(car => ({
+        id: car.id, position: car.position, length: car.length, speed: car.speed,
+      })),
+    })),
+  };
+}
+
+export function restartSimulation() {
+  cancelAnimation();
+  reset();
+  state.running = true;
+  updateUI();
+  scheduleAnimation();
+  return simulationSnapshot();
 }
 
 function scheduleAnimation() {
@@ -601,11 +693,7 @@ el('stopBtn').addEventListener('click', () => {
 el('restartBtn').addEventListener('click', () => {
   // Restart begins a fresh run immediately, so its one-second opening red
   // phase counts down instead of remaining frozen until Play is pressed.
-  cancelAnimation();
-  reset();
-  state.running = true;
-  updateUI();
-  scheduleAnimation();
+  restartSimulation();
 });
 el('viewToggle').addEventListener('click', () => {
   mobileView.overview = !mobileView.overview;
