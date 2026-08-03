@@ -176,10 +176,11 @@ test('brakes early enough to preserve the requested resting distance', () => {
   assert.equal(shouldBrakeForTarget(7.6, 10, 5, 5, 1), false);
 });
 
-test('increases moving safety distance with speed and closing speed', () => {
-  assert.equal(movingSafetyDistance(2, 10, 10, 5, 1), 12);
-  assert.equal(movingSafetyDistance(2, 10, 5, 5, 1), 19.5);
-  assert.equal(movingSafetyDistance(2, 5, 10, 5, 1), 7);
+test('increases moving safety distance with closing speed, not shared forward speed', () => {
+  assert.equal(movingSafetyDistance(2, 10, 10, 5, 1), 2);
+  assert.equal(movingSafetyDistance(2, 10, 5, 5, 1), 14.5);
+  assert.equal(movingSafetyDistance(2, 5, 10, 5, 1), 2);
+  assert.equal(movingSafetyDistance(6, .2, .2, 5, .5), 6);
 });
 
 test('requires emergency braking only when close and considerably faster', () => {

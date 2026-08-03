@@ -84,7 +84,10 @@ export function movingSafetyDistance(
   brakingRate,
   responseTime,
 ) {
-  const reactionDistance = Math.max(0, followerSpeed) * responseTime;
+  // Cars already moving with their leader do not consume their entire forward
+  // travel as gap. Only the distance by which the follower closes on the
+  // leader during the response delay needs to be added.
+  const reactionDistance = Math.max(0, followerSpeed - leaderSpeed) * responseTime;
   const speedDifferenceDistance = Math.max(
     0,
     (followerSpeed ** 2 - leaderSpeed ** 2) / (2 * brakingRate),

@@ -44,7 +44,7 @@ The simulation uses a simplified one-dimensional car-following model:
 
 - Each car stores its behavioral state separately from its instantaneous speed. `DRIVE` includes acceleration, constant-speed travel, coasting, gentle braking, and low-speed queue closing; emergency braking is also exposed as a visible state.
 - Reaction time is stored per driver and currently initialized to 0.5 simulation seconds for every driver. A stronger pending reaction supersedes a weaker one, so a previously scheduled gentle action cannot overwrite emergency braking.
-- The moving safety distance includes the standstill gap, distance traveled during reaction time, and the extra distance required when the follower is faster than its leader.
+- The moving safety distance includes the standstill gap, distance closed on the leader during reaction time, and the extra braking distance required when the follower is faster. Cars traveling together therefore keep their lane's resting gap, while a faster follower leaves progressively more room.
 - Emergency braking begins at 1.2 seconds time to contact and uses a 2-second exit threshold. The different thresholds provide hysteresis. A very short gap can also trigger it independently of time to contact.
 - Queue mode is persistent while a car expects to stop within 50 meters of the line and uses the lane-specific standstill gap. Cars can close available space on red but may not cross unless the signal permits it or they were already committed during orange.
 - The lead car targets the legal stop position when it must stop; following cars target a safe queue position behind their leader.
