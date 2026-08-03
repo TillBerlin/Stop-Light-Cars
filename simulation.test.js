@@ -77,8 +77,18 @@ function installFakeBrowser() {
 installFakeBrowser();
 let randomState = 0x5eed1234;
 Math.random = () => ((randomState = (1664525 * randomState + 1013904223) >>> 0) / 2 ** 32);
-const { restartSimulation, runHeadlessSimulation } = await import('./app.js');
+const { restartSimulation, roadRenderMetrics, runHeadlessSimulation } = await import('./app.js');
 const simulationResult = runHeadlessSimulation(60);
+
+test('waits for a measurable road before calculating vehicle positions', () => {
+  assert.equal(roadRenderMetrics(0), null);
+  assert.equal(roadRenderMetrics(Number.NaN), null);
+  assert.deepEqual(roadRenderMetrics(1000), {
+    roadWidth: 1000,
+    stopFraction: .82,
+    pixelsPerMeter: 1000 * .82 / 110,
+  });
+});
 
 test('default 60-second simulation keeps safety interventions within its regression budget', () => {
   assert.equal(simulationResult.diagnostics.crashes, 0,
