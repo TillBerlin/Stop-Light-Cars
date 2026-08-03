@@ -62,6 +62,41 @@ export function relativeStoppingDistance(followerSpeed, leaderSpeed, brakingRate
   return closingSpeed * responseTime + (closingSpeed ** 2) / (2 * brakingRate);
 }
 
+export function predictedStopPosition(position, speed, brakingRate, responseTime = 0, minimumPosition = -Infinity) {
+  return Math.max(
+    minimumPosition,
+    position - relativeStoppingDistance(speed, 0, brakingRate, responseTime),
+  );
+}
+
+export function stopFallsWithinZone(stopPosition, zoneStart, zoneEnd) {
+  return stopPosition >= zoneStart && stopPosition <= zoneEnd;
+}
+
+export function queuedStopPosition(
+  ownStopPosition,
+  leaderStopPosition,
+  followerLength,
+  leaderLength,
+  restingGap,
+  leaderCommitted = false,
+) {
+  if (!Number.isFinite(leaderStopPosition) || leaderCommitted) return ownStopPosition;
+  return leaderStopPosition + (followerLength + leaderLength) / 2 + restingGap;
+}
+
+export function minimumFollowingPosition(
+  currentPosition,
+  leaderPosition,
+  followerLength,
+  leaderLength,
+  restingGap = 0,
+) {
+  const collisionBoundary = leaderPosition + (followerLength + leaderLength) / 2;
+  const restingBoundary = collisionBoundary + restingGap;
+  return currentPosition >= restingBoundary ? restingBoundary : collisionBoundary;
+}
+
 export function shouldBrakeForTarget(
   availableDistance,
   followerSpeed,

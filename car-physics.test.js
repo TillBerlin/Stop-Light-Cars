@@ -12,8 +12,11 @@ import {
   hasStartingClearance,
   hasRoomForArrival,
   mustStopForRedLight,
+  minimumFollowingPosition,
   movingSafetyDistance,
   needsEmergencyBraking,
+  predictedStopPosition,
+  queuedStopPosition,
   randomBetween,
   relativeStoppingDistance,
   restingDistanceForPosition,
@@ -21,6 +24,7 @@ import {
   shouldEnterQueueMode,
   shouldHoldForQueueStartup,
   shouldTriggerStartup,
+  stopFallsWithinZone,
   safeArrivalSpeed,
 } from './car-physics.js';
 
@@ -172,6 +176,30 @@ test('calculates stopping distance from relative rather than absolute speed', ()
   assert.equal(relativeStoppingDistance(10, 0, 5, 1), 20);
 });
 
+test('predicts whether braking will place a car inside the striped queue zone', () => {
+  assert.equal(predictedStopPosition(70, 10, 2.5, .5), 45);
+  assert.equal(predictedStopPosition(20, 10, 2.5, .5, 2.5), 2.5);
+  assert.equal(stopFallsWithinZone(45, 0, 50), true);
+  assert.equal(stopFallsWithinZone(50.1, 0, 50), false);
+});
+
+test('propagates predicted striped queue positions from leader to follower', () => {
+  const leaderStop = 2.5;
+  const secondStop = queuedStopPosition(40, leaderStop, 4, 4, 6);
+  const thirdStop = queuedStopPosition(60, secondStop, 4, 4, 6);
+
+  assert.equal(secondStop, 12.5);
+  assert.equal(thirdStop, 22.5);
+  assert.equal(stopFallsWithinZone(thirdStop, 0, 50), true);
+  assert.equal(queuedStopPosition(40, leaderStop, 4, 4, 6, true), 40);
+});
+
+test('preserves a resting gap without moving an already-too-close follower backwards', () => {
+  assert.equal(minimumFollowingPosition(20, 10, 4, 4, 6), 20);
+  assert.equal(minimumFollowingPosition(18, 10, 4, 4, 6), 14);
+  assert.equal(minimumFollowingPosition(20, 10, 4, 4), 14);
+});
+
 test('brakes early enough to preserve the requested resting distance', () => {
   assert.equal(shouldBrakeForTarget(7.5, 10, 5, 5, 1), true);
   assert.equal(shouldBrakeForTarget(7.6, 10, 5, 5, 1), false);
@@ -215,6 +243,15 @@ test('starts gentle braking early enough to stop behind a standing car at road s
   assert.ok(brakingGap > 47);
   assert.equal(shouldBrakeForTarget(brakingGap, roadSpeed, 0, gentleBrakingRate, reactionTime), false);
   assert.equal(shouldBrakeForTarget(brakingGap - restingGap, roadSpeed, 0, gentleBrakingRate, reactionTime), true);
+});
+
+test('includes a striped standstill gap inside the complete braking envelope', () => {
+  const speed = 50 / 3.6;
+  const normalEnvelope = movingSafetyDistance(2, speed, 0, 2.5, .5);
+  const stripedEnvelope = movingSafetyDistance(6, speed, 0, 2.5, .5);
+
+  assert.ok(Math.abs(stripedEnvelope - normalEnvelope - 4) < 1e-9);
+  assert.ok(stripedEnvelope > Math.max(normalEnvelope, 6));
 });
 
 test('requires emergency braking only when close and considerably faster', () => {
