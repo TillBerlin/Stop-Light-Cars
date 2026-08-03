@@ -131,6 +131,17 @@ let nextCarId = 1;
 let vehicleProfiles = [];
 const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: null, lanes: [], diagnostics: null };
 
+export function roadRenderMetrics(roadWidth, isMobile = false, overview = false) {
+  if (!Number.isFinite(roadWidth) || roadWidth <= 0) return null;
+  const stopFraction = isMobile && !overview ? .9 : .82;
+  const visibleApproach = isMobile && !overview ? 55 : ROAD_MAX;
+  return {
+    roadWidth,
+    stopFraction,
+    pixelsPerMeter: roadWidth * stopFraction / visibleApproach,
+  };
+}
+
 function freshDiagnostics() {
   return {
     crashes: 0, emergencyBrakes: 0, starts: [], prolongedOpenGaps: [],
@@ -607,10 +618,12 @@ function cancelAnimation() {
 function render() {
   const isMobile = window.matchMedia('(max-width: 600px)').matches;
   const overview = !isMobile || mobileView.overview;
-  const roadWidth = el('road').clientWidth;
-  const stopFraction = isMobile && !overview ? .9 : .82;
-  const visibleApproach = isMobile && !overview ? 55 : ROAD_MAX;
-  const pixelsPerMeter = roadWidth * stopFraction / visibleApproach;
+  const metrics = roadRenderMetrics(el('road').clientWidth, isMobile, overview);
+  // A newly restored tab or initially hidden embed can briefly report a zero
+  // width. Do not replace valid car coordinates with NaN while layout settles;
+  // the ResizeObserver below will render as soon as the road is visible.
+  if (!metrics) return;
+  const { roadWidth, stopFraction, pixelsPerMeter } = metrics;
   el('road').style.setProperty('--stop-x', `${stopFraction * 100}%`);
   renderRoadMarkings(stopFraction, roadWidth, pixelsPerMeter);
   el('road').classList.toggle('compact-cars', CAR_LENGTH_MIN * pixelsPerMeter < 24);
@@ -730,4 +743,8 @@ el('viewToggle').addEventListener('click', () => {
   updateViewMode();
 });
 window.addEventListener('resize', render);
+if ('ResizeObserver' in window) {
+  const roadResizeObserver = new window.ResizeObserver(render);
+  roadResizeObserver.observe(el('road'));
+}
 reset();
