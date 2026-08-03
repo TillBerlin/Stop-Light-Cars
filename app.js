@@ -31,7 +31,10 @@ const STOP_LINE_BUFFER = .5;
 const ROAD_MIN = -24;
 const ROAD_MAX = 110;
 const INITIAL_CARS = 10;
-const BRAKE_RATE = 5.5;
+// Keep the prediction model aligned with the deceleration cars actually use.
+// Overestimating this rate makes drivers wait too long before braking and then
+// reach a stopped leader before their gentle braking can finish.
+const BRAKE_RATE = 2.5;
 const EMERGENCY_BRAKE_RATE = 9;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
@@ -43,7 +46,6 @@ const MOVEMENT_WINDOW = .2;
 const STOP_WINDOW = .1;
 const STOP_POSITION_TOLERANCE = .15;
 const COAST_RATE = .6;
-const GENTLE_BRAKE_RATE = 2.5;
 const CREEP_ACCELERATION = .6;
 const STRIPE_SPACING = 2;
 const STRIPE_ZONE_START = 0;
@@ -319,7 +321,7 @@ function updateLane(lane, dt) {
     } else if (car.control === CONTROL.EMERGENCY_BRAKE) {
       car.speed = Math.max(0, current.speed - EMERGENCY_BRAKE_RATE * dt);
     } else if (car.control === CONTROL.BRAKE) {
-      car.speed = Math.max(0, current.speed - GENTLE_BRAKE_RATE * dt);
+      car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
     } else if (car.control === CONTROL.COAST) {
       car.speed = Math.max(0, current.speed - COAST_RATE * dt);
     } else if (car.control === CONTROL.CREEP) {
