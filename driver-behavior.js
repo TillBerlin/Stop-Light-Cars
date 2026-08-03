@@ -74,7 +74,9 @@ export function scheduleControl(car, requestedControl, now) {
   if (pending && PRIORITY[pending.control] > PRIORITY[requestedControl]) return;
   car.pendingControl = {
     control: requestedControl,
-    dueAt: now + car.reactionTime,
+    // Escalating an already noticed hazard must not restart the driver's
+    // reaction clock. The new response replaces the old one at its deadline.
+    dueAt: pending?.dueAt ?? now + car.reactionTime,
   };
 }
 

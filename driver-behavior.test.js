@@ -48,7 +48,9 @@ test('delays controls by the driver reaction time and preserves stronger pending
   scheduleControl(car, CONTROL.COAST, 11);
   scheduleControl(car, CONTROL.EMERGENCY_BRAKE, 11.1);
   assert.equal(car.pendingControl.control, CONTROL.EMERGENCY_BRAKE);
-  assert.equal(car.pendingControl.dueAt, 11.6);
+  assert.equal(car.pendingControl.dueAt, 11.5);
+  assert.equal(applyScheduledControl(car, 11.5), true);
+  assert.equal(car.control, CONTROL.EMERGENCY_BRAKE);
 });
 
 test('uses time-to-contact hysteresis while emergency braking', () => {

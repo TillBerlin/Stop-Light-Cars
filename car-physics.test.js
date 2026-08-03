@@ -183,6 +183,11 @@ test('increases moving safety distance with closing speed, not shared forward sp
   assert.equal(movingSafetyDistance(6, .2, .2, 5, .5), 6);
 });
 
+test('projects a braking leader through the driver reaction time', () => {
+  assert.equal(movingSafetyDistance(2, 10, 10, 5, 1, 5), 12);
+  assert.equal(movingSafetyDistance(2, 10, 2, 5, 1, 5), 21.6);
+});
+
 test('starts gentle braking early enough to stop behind a standing car at road speed', () => {
   const roadSpeed = 50 / 3.6;
   const restingGap = 2;
