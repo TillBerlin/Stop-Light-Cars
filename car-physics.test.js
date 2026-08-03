@@ -212,6 +212,17 @@ test('increases moving safety distance with closing speed, not shared forward sp
   assert.equal(movingSafetyDistance(6, .2, .2, 5, .5), 6);
 });
 
+test('adds a human time headway while cars are moving at the same speed', () => {
+  assert.equal(movingSafetyDistance(2, 10, 10, 5, 1, 0, 1.5), 17);
+  assert.equal(movingSafetyDistance(2, 0, 0, 5, 1, 0, 1.5), 2);
+});
+
+test('limits an arriving car to a speed that preserves its moving headway', () => {
+  const speed = safeArrivalSpeed(17, 10, 20, 2, 5, 1, 1.5);
+
+  assert.ok(Math.abs(speed - 10) < .001);
+});
+
 test('uses the queue gap only while the signal requires the car to stop', () => {
   assert.equal(desiredFollowingDistance(2, 6, false), 2);
   assert.equal(desiredFollowingDistance(2, 6, true), 6);

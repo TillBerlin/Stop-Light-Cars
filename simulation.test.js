@@ -81,9 +81,9 @@ const { restartSimulation, runHeadlessSimulation } = await import('./app.js');
 const simulationResult = runHeadlessSimulation(60);
 
 test('default 60-second simulation keeps safety interventions within its regression budget', () => {
-  assert.ok(simulationResult.diagnostics.crashes <= 1,
+  assert.equal(simulationResult.diagnostics.crashes, 0,
     `observed ${simulationResult.diagnostics.crashes} collision corrections`);
-  assert.ok(simulationResult.diagnostics.emergencyBrakes <= 40,
+  assert.ok(simulationResult.diagnostics.emergencyBrakes <= 10,
     `observed ${simulationResult.diagnostics.emergencyBrakes} emergency-brake events`);
 });
 
