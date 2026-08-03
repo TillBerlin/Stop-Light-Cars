@@ -109,6 +109,17 @@ test('the first four initial cars in both lanes start during the first green pha
   }
 });
 
+test('cars do not repeat startup during the first green wave', () => {
+  const startupEntries = simulationResult.diagnostics.behaviorTransitions.filter(transition => (
+    transition.to === 'STARTUP' && transition.time <= 13
+  ));
+  const entriesByCar = Map.groupBy(startupEntries, transition => transition.carId);
+  for (const [carId, entries] of entriesByCar) {
+    assert.equal(entries.length, 1,
+      `car ${carId} entered startup ${entries.length} times: ${JSON.stringify(simulationResult.diagnostics.behaviorTransitions.filter(transition => transition.carId === carId && transition.time <= 13))}`);
+  }
+});
+
 test('cars crossing on red were committed to crossing during orange', () => {
   const redCrossings = simulationResult.diagnostics.lineCrossings.filter(crossing => crossing.phase === 'red');
   assert.ok(redCrossings.every(crossing => crossing.committedDuringOrange),
@@ -131,7 +142,7 @@ test('restart clears diagnostics and restores the initial vehicle state', () => 
   assert.equal(restarted.running, true);
   assert.deepEqual(restarted.diagnostics, {
     crashes: 0, emergencyBrakes: 0, starts: [], prolongedOpenGaps: [],
-    lineCrossings: [], stripedZoneStops: [],
+    lineCrossings: [], stripedZoneStops: [], behaviorTransitions: [],
   });
   assert.equal(restarted.lanes.length, 2);
   for (const lane of restarted.lanes) {

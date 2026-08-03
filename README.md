@@ -1,6 +1,6 @@
 # Green Wave Lab
 
-An interactive traffic simulation showing how two queues respond to one traffic light. Both lanes share start-up time, acceleration, clearing distance, and signal timing; each lane has its own resting gap so their throughput can be compared.
+An interactive traffic simulation showing how two queues respond to one traffic light. Both lanes share start-up time, driver aggressiveness, clearing distance, and signal timing; each lane has its own resting gap so their throughput can be compared.
 
 ## Features
 
@@ -8,7 +8,8 @@ An interactive traffic simulation showing how two queues respond to one traffic 
 - Drivers have persistent `WAIT`, `STARTUP`, `DRIVE`, and `EMERGENCY BRAKE` behaviors. The labels describe driver intent instead of changing whenever instantaneous speed crosses a threshold.
 - A waiting driver starts reacting on green after its leader moves at least 0.05 meters within 0.2 seconds or once the bumper gap reaches the configured clearing distance. On red or orange, a gap of twice the clearing distance also starts the reaction, allowing a car to close an unusually large queue gap without proceeding through the signal.
 - After the start-up countdown, the ordinary clearing distance must still be available. Otherwise the driver returns to `WAIT`. A driver remains stationary throughout `STARTUP`.
-- While driving, cars transition after a per-driver reaction time between accelerating, holding speed, coasting, gentle braking, low-speed queue closing, and emergency braking. Desired-gap and time-to-contact hysteresis keep small numerical changes from repeatedly reversing a decision.
+- While driving, each car continuously recalculates acceleration from its target speed, bumper gap, desired gap, and closing speed. All drivers currently share one aggressiveness setting instead of receiving different acceleration capabilities.
+- Ordinary pedal adjustments have no artificial reaction delay, but acceleration is smoothed by a 2 m/s³ jerk limit. A closing gap that predicts contact within one second is treated as a surprising hazard: the driver maintains the existing acceleration during a 0.5-second reaction interval, so a car already slowing continues to slow, and then applies the calculated collision-avoidance deceleration.
 - Equal, configurable red and green phases repeat automatically, separated by a one-second orange phase. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
 - New-car demand continues in each lane at the configured rate even when its entrance is blocked. Waiting arrivals appear in an upstream counter and enter as space becomes available, at a speed based on the leader and available stopping distance. The default is 30 cars per minute, and the arrival-rate slider ranges from 10 to 60 cars per minute in increments of 5.
 - Live crossed-car counts and phase countdown.
@@ -43,12 +44,14 @@ The Vite `base` option is set to `/Stop-Light-Cars/` in `vite.config.js`, matchi
 The simulation uses a simplified one-dimensional car-following model:
 
 - Each car stores its behavioral state separately from its instantaneous speed. `DRIVE` includes acceleration, constant-speed travel, coasting, gentle braking, and low-speed queue closing; emergency braking is also exposed as a visible state.
-- Reaction time is stored per driver and currently initialized to 0.5 simulation seconds for every driver. A stronger pending reaction supersedes a weaker one, so a previously scheduled gentle action cannot overwrite emergency braking.
-- The moving safety distance includes a 1.5-second human following headway, the applicable final gap, distance closed on the leader during reaction time, and the extra braking distance required when the follower is faster. The headway expands with speed but disappears at rest, where the lane's configured queue gap applies. A compliant Lane B driver predicts its place in a forming queue and latches the six-meter gap before its stopping trajectory enters the striped zone. It retains that gap while braking, creeping, and waiting, then returns to the normal moving gap after release on green.
-- Emergency braking begins at 1.2 seconds time to contact and uses a 2-second exit threshold. The different thresholds provide hysteresis. A very short gap can also trigger it independently of time to contact.
+- Start-up time and braking reaction time represent different effects. A stopped driver completes the configured start-up countdown before moving. Ordinary speed-and-gap corrections occur continuously without delay. A separate 0.5-second reaction interval applies only when the current gap and closing speed predict contact within one second; during that interval the existing acceleration remains in effect.
+- Requested acceleration follows an Intelligent Driver Model-style calculation using target speed, desired gap, and relative speed. The shared aggressiveness control scales maximum ordinary acceleration. Applied acceleration can change by at most 2 m/s³ during ordinary operation, which is 0.1 m/s² per 50-millisecond physics step.
+- The desired moving gap includes a 1.5-second human following headway above the normal resting gap. The continuous controller adds a closing-speed correction, while the headway disappears at rest, where the lane's configured queue gap applies. A compliant Lane B driver predicts its place in a forming queue and latches the six-meter gap before its stopping trajectory enters the striped zone. It retains that gap while braking, creeping, and waiting, then returns to the normal moving gap after release on green.
+- Collision-risk braking begins when the bumper gap divided by closing speed predicts contact within one second. After the reaction interval, the required relative deceleration is calculated from the current closing speed and gap rather than selected from a fixed braking rate. The emergency state clears after time to contact rises above 1.5 seconds.
 - Queue mode is persistent while a car expects to stop within 50 meters of the line and uses the lane-specific standstill gap. Cars can close available space on red but may not cross unless the signal permits it or they were already committed during orange.
 - The lead car targets the legal stop position when it must stop; following cars target a safe queue position behind their leader.
 - A stop is confirmed using both instantaneous speed and displacement over the previous 0.1 seconds. Within 0.15 meters of its target, a settled car is set to exactly zero speed and enters `WAIT` to avoid numerical crawling.
+- Behavior transitions are retained in headless diagnostics with their reason and relevant motion context. Regression tests use this trace to ensure a car does not repeat its start-up sequence during the first green wave.
 - Orange-light stopping decisions are made independently for every car, so a follower may stop even if the car ahead proceeds.
 
 These rules are intended to produce an understandable educational visualization, not a calibrated traffic-engineering prediction.

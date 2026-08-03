@@ -6,28 +6,27 @@ import {
   entranceGap,
   followsThreeStripeRule,
   hasRoomForArrival,
-  movingSafetyDistance,
   minimumFollowingPosition,
   predictedStopPosition,
   preferredFollowingDistance,
   queuedStopPosition,
   randomBetween,
   restingDistanceForPosition,
-  shouldBrakeForTarget,
   shouldEnterQueueMode,
   stopFallsWithinZone,
   safeArrivalSpeed,
 } from './car-physics.js';
 import { carStatusLabel } from './car-status.js';
 import {
-  applyScheduledControl,
   BEHAVIOR,
   CONTROL,
-  desiredControl,
+  continuousAcceleration,
+  limitAccelerationByJerk,
   recentMovement,
-  scheduleControl,
+  requiredCollisionAvoidanceAcceleration,
   startupCanFinish,
   startupOpportunity,
+  timeToContact,
 } from './driver-behavior.js';
 
 const CAR_LENGTH_MIN = 3.8;
@@ -41,23 +40,21 @@ const INITIAL_CARS = 10;
 // Overestimating this rate makes drivers wait too long before braking and then
 // reach a stopped leader before their gentle braking can finish.
 const BRAKE_RATE = 2.5;
-const EMERGENCY_BRAKE_RATE = 9;
-const MINIMUM_EMERGENCY_CLOSING_SPEED = .5;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
 const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 const REACTION_TIME = .5;
+const COLLISION_REACTION_HORIZON = 1;
+const MAXIMUM_ACCELERATION = 2;
+const MAXIMUM_JERK = 2;
 // A 1.5-second moving headway is a moderate human following interval. The
 // resting-gap controls still determine the compact spacing of stopped queues.
 const MOVING_TIME_HEADWAY = 1.5;
 const MOVEMENT_WINDOW = .2;
 const STOP_WINDOW = .1;
 const STOP_POSITION_TOLERANCE = .15;
-const COAST_RATE = .6;
-const COMFORT_BRAKE_RATE = 1.2;
-const CREEP_ACCELERATION = .6;
 const STRIPE_SPACING = 2;
 const STRIPE_ZONE_START = 0;
 const DISTANCE_MARKER_SPACING = 10;
@@ -66,14 +63,14 @@ const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e88
 
 const settings = {
   startupMin: 1.7, startupMax: 2,
-  accelerationMin: 1.8, accelerationMax: 2.2,
+  aggressiveness: 1,
   clearingMin: 4, clearingMax: 4,
   phase: 12, arrivalRate: 30, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
   stripeCompliance: 100, stripeLength: 50, simulationSpeed: 1,
 };
 const controlDefinitions = [
   { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
-  { key: 'acceleration', label: 'Acceleration', min: .5, max: 4, step: .1, unit: 'm/s²', note: 'Uniform range per car', range: true },
+  { key: 'aggressiveness', label: 'Driver aggressiveness', min: .5, max: 1.5, step: .1, unit: '×', note: 'Shared by all drivers' },
   { key: 'clearing', label: 'Clearing distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
   { key: 'phase', label: 'Green / red time', min: 5, max: 30, step: 1, unit: 's', note: 'Equal phase duration' },
   { key: 'arrivalRate', label: 'Arrival rate', min: 10, max: 60, step: 5, unit: 'cars/min', note: 'New cars per lane' },
@@ -148,8 +145,21 @@ export function roadRenderMetrics(roadWidth, isMobile = false, overview = false)
 function freshDiagnostics() {
   return {
     crashes: 0, emergencyBrakes: 0, starts: [], prolongedOpenGaps: [],
-    lineCrossings: [], stripedZoneStops: [],
+    lineCrossings: [], stripedZoneStops: [], behaviorTransitions: [],
   };
+}
+
+function transitionBehavior(car, behavior, reason, context = {}) {
+  if (car.behavior === behavior) return;
+  state.diagnostics.behaviorTransitions.push({
+    carId: car.id,
+    time: state.elapsed,
+    from: car.behavior,
+    to: behavior,
+    reason,
+    ...context,
+  });
+  car.behavior = behavior;
 }
 
 function vehicleProfile(index) {
@@ -178,11 +188,11 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
     committedToCross: false, node,
     behavior: initialSpeed >= STOPPED_SPEED ? BEHAVIOR.DRIVE : BEHAVIOR.WAIT,
     control: initialSpeed >= STOPPED_SPEED ? CONTROL.HOLD : CONTROL.HOLD,
-    pendingControl: null, reactionTime: REACTION_TIME,
+    pendingControl: null, pendingBrake: null, reactionTime: REACTION_TIME,
+    acceleration: 0,
     movementSamples: [{ time: state.elapsed, position }],
     stoppedWithOpenGapSince: null,
     startup: randomBetween(settings.startupMin, settings.startupMax),
-    acceleration: randomBetween(settings.accelerationMin, settings.accelerationMax),
     clearing: randomBetween(settings.clearingMin, settings.clearingMax),
     followsThreeStripeRule: laneIndex === 1
       ? followsThreeStripeRule(settings.stripeCompliance)
@@ -231,6 +241,7 @@ function updateLane(lane, dt) {
     queueMode: car.queueMode,
     releasedFromQueue: car.releasedFromQueue,
     recentMovement: recentMovement(car.movementSamples, state.elapsed, MOVEMENT_WINDOW),
+    acceleration: car.acceleration,
   }));
   for (let i = 0; i < lane.cars.length; i++) {
     const car = lane.cars[i];
@@ -312,7 +323,7 @@ function updateLane(lane, dt) {
     })) {
       car.startupTriggered = true;
       car.startupClock = 0;
-      car.behavior = BEHAVIOR.STARTUP;
+      transitionBehavior(car, BEHAVIOR.STARTUP, 'startup-opportunity', { gap });
       car.pendingControl = null;
       car.speed = 0;
     }
@@ -322,7 +333,7 @@ function updateLane(lane, dt) {
     const readyToStart = car.startupClock >= car.startup;
     if (car.behavior === BEHAVIOR.STARTUP && readyToStart) {
       if (startupCanFinish(Boolean(ahead), gap, car.clearing)) {
-        car.behavior = BEHAVIOR.DRIVE;
+        transitionBehavior(car, BEHAVIOR.DRIVE, 'startup-complete', { gap });
         state.diagnostics.starts.push({ carId: car.id, lane: lane.index, time: state.elapsed });
         car.control = CONTROL.ACCELERATE;
         car.startupTriggered = false;
@@ -332,39 +343,17 @@ function updateLane(lane, dt) {
           car.queueRestingGap = settings.topGap;
         }
       } else {
-        car.behavior = BEHAVIOR.WAIT;
+        transitionBehavior(car, BEHAVIOR.WAIT, 'startup-clearance-lost', { gap });
         car.startupTriggered = false;
         car.startupClock = 0;
       }
     }
     let speedLimit = settings.speedLimit / 3.6;
     let desiredGap = settings.topGap;
-    let brakingGap = 0;
-    let emergencyGap = 0;
     let targetDistance = Infinity;
 
     if (ahead) {
       const baseFollowingGap = expectsToStop ? standstillGap : settings.topGap;
-      brakingGap = movingSafetyDistance(
-        baseFollowingGap,
-        current.speed,
-        ahead.speed,
-        BRAKE_RATE,
-        car.reactionTime,
-        ahead.control === CONTROL.EMERGENCY_BRAKE
-          ? EMERGENCY_BRAKE_RATE
-          : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
-      );
-      emergencyGap = movingSafetyDistance(
-        baseFollowingGap,
-        current.speed,
-        ahead.speed,
-        EMERGENCY_BRAKE_RATE,
-        car.reactionTime,
-        ahead.control === CONTROL.EMERGENCY_BRAKE
-          ? EMERGENCY_BRAKE_RATE
-          : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
-      );
       const preferredGap = preferredFollowingDistance(
         settings.topGap,
         current.speed,
@@ -385,61 +374,72 @@ function updateLane(lane, dt) {
       if (!ahead) targetDistance = distanceToLine;
     }
 
+    let requestedAcceleration = 0;
     if (car.behavior === BEHAVIOR.DRIVE || car.behavior === BEHAVIOR.EMERGENCY_BRAKE) {
-      let requestedControl = desiredControl({
-        activeControl: car.control,
-        gap,
-        desiredGap,
-        brakingGap,
-        emergencyGap,
-        followerSpeed: current.speed,
-        leaderSpeed: ahead?.speed || 0,
-        mustStop: signalRequiresStop || Boolean(ahead?.queueMode),
-        targetDistance,
-        creepSpeed: CREEP_SPEED,
-        minimumEmergencyClosingSpeed: MINIMUM_EMERGENCY_CLOSING_SPEED,
+      const controllerGap = ahead ? gap : targetDistance;
+      const controllerDesiredGap = ahead ? desiredGap : 0;
+      const controllerLeaderSpeed = ahead?.speed || 0;
+      const controllerTargetSpeed = signalRequiresStop && !ahead ? 0 : speedLimit;
+      requestedAcceleration = continuousAcceleration({
+        speed: current.speed,
+        targetSpeed: controllerTargetSpeed,
+        gap: controllerGap,
+        desiredGap: controllerDesiredGap,
+        leaderSpeed: controllerLeaderSpeed,
+        maximumAcceleration: MAXIMUM_ACCELERATION * settings.aggressiveness,
+        comfortableDeceleration: BRAKE_RATE,
       });
-      if (requestedControl !== CONTROL.EMERGENCY_BRAKE && expectsToStop && ahead && shouldBrakeForTarget(
-        targetDistance,
-        current.speed,
-        ahead.speed,
-        BRAKE_RATE,
-        car.reactionTime,
-      )) requestedControl = CONTROL.BRAKE;
-      if (requestedControl !== CONTROL.EMERGENCY_BRAKE && signalRequiresStop && !ahead && shouldBrakeForTarget(
-        targetDistance,
-        current.speed,
-        0,
-        BRAKE_RATE,
-        car.reactionTime,
-      )) requestedControl = CONTROL.BRAKE;
-      scheduleControl(car, requestedControl, state.elapsed);
-      const previousControl = car.control;
-      applyScheduledControl(car, state.elapsed);
-      if (previousControl !== CONTROL.EMERGENCY_BRAKE && car.control === CONTROL.EMERGENCY_BRAKE) {
-        state.diagnostics.emergencyBrakes++;
+
+      const collisionTime = timeToContact(gap, current.speed, ahead?.speed || 0);
+      const avoidanceAcceleration = ahead
+        ? requiredCollisionAvoidanceAcceleration(gap, current.speed, ahead.speed)
+        : 0;
+      const surprisingBrake = car.behavior === BEHAVIOR.DRIVE && Boolean(ahead)
+        && collisionTime <= COLLISION_REACTION_HORIZON
+        && requestedAcceleration < current.acceleration;
+      if (surprisingBrake) {
+        if (!car.pendingBrake) {
+          car.pendingBrake = { dueAt: state.elapsed + car.reactionTime, acceleration: avoidanceAcceleration };
+        } else {
+          car.pendingBrake.acceleration = Math.min(car.pendingBrake.acceleration, avoidanceAcceleration);
+        }
       }
+
+      if (car.pendingBrake?.dueAt > state.elapsed) {
+        // During perception/reaction the driver maintains the existing pedal
+        // input. A car that was already slowing therefore continues to slow.
+        requestedAcceleration = current.acceleration;
+      } else if (car.pendingBrake) {
+        requestedAcceleration = Math.min(requestedAcceleration, car.pendingBrake.acceleration);
+        car.pendingBrake = null;
+        state.diagnostics.emergencyBrakes++;
+        transitionBehavior(car, BEHAVIOR.EMERGENCY_BRAKE, 'collision-risk', {
+          gap, collisionTime, requestedAcceleration,
+        });
+      } else if (car.behavior === BEHAVIOR.EMERGENCY_BRAKE
+        && collisionTime <= COLLISION_REACTION_HORIZON * 1.5) {
+        requestedAcceleration = Math.min(requestedAcceleration, avoidanceAcceleration);
+      } else if (car.behavior === BEHAVIOR.EMERGENCY_BRAKE && collisionTime > COLLISION_REACTION_HORIZON * 1.5) {
+        transitionBehavior(car, BEHAVIOR.DRIVE, 'collision-risk-cleared', { gap, collisionTime });
+      }
+
+      car.acceleration = limitAccelerationByJerk(
+        current.acceleration,
+        requestedAcceleration,
+        MAXIMUM_JERK,
+        dt,
+      );
+      car.control = car.behavior === BEHAVIOR.EMERGENCY_BRAKE
+        ? CONTROL.EMERGENCY_BRAKE
+        : car.acceleration > .05 ? CONTROL.ACCELERATE
+          : car.acceleration < -.05 ? CONTROL.COMFORT_BRAKE : CONTROL.HOLD;
     }
 
-    car.braking = car.control === CONTROL.COMFORT_BRAKE
-      || car.control === CONTROL.BRAKE
-      || car.control === CONTROL.EMERGENCY_BRAKE;
+    car.braking = car.acceleration < 0;
     if (car.behavior === BEHAVIOR.WAIT || car.behavior === BEHAVIOR.STARTUP) {
       car.speed = 0;
-    } else if (car.control === CONTROL.EMERGENCY_BRAKE) {
-      car.speed = Math.max(0, current.speed - EMERGENCY_BRAKE_RATE * dt);
-    } else if (car.control === CONTROL.BRAKE) {
-      car.speed = Math.max(0, current.speed - BRAKE_RATE * dt);
-    } else if (car.control === CONTROL.COMFORT_BRAKE) {
-      car.speed = Math.max(0, current.speed - COMFORT_BRAKE_RATE * dt);
-    } else if (car.control === CONTROL.COAST) {
-      car.speed = Math.max(0, current.speed - COAST_RATE * dt);
-    } else if (car.control === CONTROL.CREEP) {
-      car.speed = Math.min(CREEP_SPEED, current.speed + CREEP_ACCELERATION * dt);
-    } else if (car.control === CONTROL.ACCELERATE) {
-      car.speed = Math.min(speedLimit, current.speed + car.acceleration * dt);
     } else {
-      car.speed = Math.min(current.speed, speedLimit);
+      car.speed = Math.max(0, Math.min(speedLimit, current.speed + car.acceleration * dt));
     }
 
     let nextPosition = current.position - car.speed * dt;
@@ -489,11 +489,15 @@ function updateLane(lane, dt) {
     const atTarget = targetDistance <= STOP_POSITION_TOLERANCE;
     if ((car.behavior === BEHAVIOR.DRIVE || car.behavior === BEHAVIOR.EMERGENCY_BRAKE)
       && car.speed < STOPPED_SPEED && stopMovement < STOPPED_SPEED * STOP_WINDOW
-      && atTarget) {
+      && atTarget && car.acceleration <= 0) {
       car.speed = 0;
       car.control = CONTROL.HOLD;
+      car.acceleration = 0;
       car.pendingControl = null;
-      car.behavior = BEHAVIOR.WAIT;
+      car.pendingBrake = null;
+      transitionBehavior(car, BEHAVIOR.WAIT, 'settled-at-target', {
+        gap, targetDistance, speed: car.speed,
+      });
       if (state.phase === 'red' && lane.index === 1 && aheadCar
         && car.followsThreeStripeRule
         && car.position >= STRIPE_ZONE_START && car.position <= settings.stripeLength) {

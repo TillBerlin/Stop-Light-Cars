@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 
 import {
   applyScheduledControl,
+  continuousAcceleration,
   CONTROL,
   desiredControl,
   recentMovement,
+  requiredCollisionAvoidanceAcceleration,
   scheduleControl,
   startupCanFinish,
   startupOpportunity,
+  limitAccelerationByJerk,
 } from './driver-behavior.js';
 
 test('starts on green movement or clearance and on a double clearance gap under red', () => {
@@ -34,6 +37,31 @@ test('detects leader displacement over a sampling window', () => {
     { time: .2, position: 9.94 },
   ];
   assert.ok(Math.abs(recentMovement(samples, .2, .2) - .06) < 1e-9);
+});
+
+test('calculates continuous acceleration from speed, gap, and closing speed', () => {
+  const base = {
+    speed: 8, targetSpeed: 14, gap: 20, desiredGap: 14, leaderSpeed: 8,
+    maximumAcceleration: 2, comfortableDeceleration: 2.5,
+  };
+  const steady = continuousAcceleration(base);
+  const closing = continuousAcceleration({ ...base, leaderSpeed: 5 });
+  const openRoad = continuousAcceleration({ ...base, gap: Infinity });
+  assert.ok(openRoad > steady);
+  assert.ok(steady > closing);
+  assert.ok(closing >= -2.5);
+});
+
+test('limits ordinary acceleration changes by jerk', () => {
+  assert.equal(limitAccelerationByJerk(0, 2, 2, .05), .1);
+  assert.equal(limitAccelerationByJerk(-.4, -2, 2, .05), -.5);
+  assert.equal(limitAccelerationByJerk(.3, .35, 2, .05), .35);
+});
+
+test('calculates the braking needed to remove closing speed before impact', () => {
+  assert.equal(requiredCollisionAvoidanceAcceleration(4, 6, 4), -.5);
+  assert.equal(requiredCollisionAvoidanceAcceleration(4, 4, 6), 0);
+  assert.equal(requiredCollisionAvoidanceAcceleration(Infinity, 6, 4), 0);
 });
 
 test('delays controls by the driver reaction time and preserves stronger pending reactions', () => {
