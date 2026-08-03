@@ -7,10 +7,14 @@ import {
   followsThreeStripeRule,
   hasRoomForArrival,
   movingSafetyDistance,
+  minimumFollowingPosition,
+  predictedStopPosition,
+  queuedStopPosition,
   randomBetween,
   restingDistanceForPosition,
   shouldBrakeForTarget,
   shouldEnterQueueMode,
+  stopFallsWithinZone,
   safeArrivalSpeed,
 } from './car-physics.js';
 import { carStatusLabel } from './car-status.js';
@@ -145,6 +149,8 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
     id: nextCarId++, position, length: profile.length, speed: initialSpeed,
     startupTriggered: false, startupClock: 0, crossed: false, braking: false,
     queueMode: false, releasedFromQueue: false,
+    queueRestingGap: settings.topGap,
+    plannedStopPosition: null,
     committedToCross: false, node,
     behavior: initialSpeed >= STOPPED_SPEED ? BEHAVIOR.DRIVE : BEHAVIOR.WAIT,
     control: initialSpeed >= STOPPED_SPEED ? CONTROL.HOLD : CONTROL.HOLD,
@@ -177,6 +183,7 @@ function fillInitialLane(laneIndex, gap) {
       : cars[i - 1].position + cars[i - 1].length / 2 + restingGap + length / 2;
     car.position = position;
     car.queueMode = true;
+    car.queueRestingGap = restingGap;
     cars.push(car);
   }
   return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS, pendingArrivals: [] };
@@ -207,18 +214,51 @@ function updateLane(lane, dt) {
 
     const aheadCar = lane.cars[i - 1];
     const gap = distanceToCarAhead(current, ahead, car.length, aheadCar?.length);
-    const standstillGap = lane.index === 1
-      ? restingDistanceForPosition(current.position, car.followsThreeStripeRule, STRIPE_ZONE_START, settings.stripeLength, settings.topGap, settings.bottomGap)
-      : settings.topGap;
     const pastLine = current.position <= STOP_POSITION;
     const mayCrossSignal = state.phase === 'green' || pastLine || car.committedToCross;
     const signalRequiresStop = !mayCrossSignal;
+    const leaderIsQueued = Boolean(aheadCar?.queueMode && !aheadCar.releasedFromQueue);
+    const expectsToStop = signalRequiresStop || leaderIsQueued;
+    if (lane.index === 1 && car.followsThreeStripeRule && expectsToStop) {
+      const lineBoundary = STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER;
+      const ownStopPosition = predictedStopPosition(
+        current.position,
+        current.speed,
+        BRAKE_RATE,
+        car.reactionTime,
+        lineBoundary,
+      );
+      const leaderStopPosition = aheadCar?.plannedStopPosition ?? (ahead
+        ? predictedStopPosition(
+          ahead.position,
+          ahead.speed,
+          BRAKE_RATE,
+          car.reactionTime,
+          STOP_POSITION + aheadCar.length / 2 + STOP_LINE_BUFFER,
+        )
+        : lineBoundary);
+      const plannedQueuePosition = queuedStopPosition(
+        ownStopPosition,
+        ahead ? leaderStopPosition : Infinity,
+        car.length,
+        aheadCar?.length || 0,
+        settings.bottomGap,
+        aheadCar?.committedToCross,
+      );
+      car.plannedStopPosition = plannedQueuePosition;
+      if (stopFallsWithinZone(
+        plannedQueuePosition,
+        STRIPE_ZONE_START,
+        settings.stripeLength,
+      )) car.queueRestingGap = settings.bottomGap;
+    } else car.plannedStopPosition = null;
+    const standstillGap = expectsToStop ? car.queueRestingGap : settings.topGap;
     const enteringQueue = shouldEnterQueueMode(
       current.position,
       STOP_POSITION,
       settings.stripeLength,
       signalRequiresStop,
-      Boolean(ahead?.queueMode),
+      leaderIsQueued,
       car.releasedFromQueue,
     );
     if (enteringQueue) {
@@ -263,6 +303,7 @@ function updateLane(lane, dt) {
         if (mayCrossSignal) {
           car.queueMode = false;
           car.releasedFromQueue = true;
+          car.queueRestingGap = settings.topGap;
         }
       } else {
         car.behavior = BEHAVIOR.WAIT;
@@ -276,7 +317,7 @@ function updateLane(lane, dt) {
 
     if (ahead) {
       const safetyDistance = movingSafetyDistance(
-        settings.topGap,
+        expectsToStop ? standstillGap : settings.topGap,
         current.speed,
         ahead.speed,
         BRAKE_RATE,
@@ -285,12 +326,8 @@ function updateLane(lane, dt) {
           ? EMERGENCY_BRAKE_RATE
           : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
       );
-      desiredGap = desiredFollowingDistance(
-        safetyDistance,
-        standstillGap,
-        signalRequiresStop,
-      );
-      const targetGap = signalRequiresStop ? standstillGap : settings.topGap;
+      desiredGap = desiredFollowingDistance(safetyDistance, standstillGap, expectsToStop);
+      const targetGap = expectsToStop ? standstillGap : settings.topGap;
       targetDistance = gap - targetGap;
       if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
     }
@@ -315,6 +352,13 @@ function updateLane(lane, dt) {
         targetDistance,
         creepSpeed: CREEP_SPEED,
       });
+      if (expectsToStop && ahead && shouldBrakeForTarget(
+        targetDistance,
+        current.speed,
+        ahead.speed,
+        BRAKE_RATE,
+        car.reactionTime,
+      )) requestedControl = CONTROL.BRAKE;
       if (signalRequiresStop && !ahead && shouldBrakeForTarget(
         targetDistance,
         current.speed,
@@ -345,11 +389,18 @@ function updateLane(lane, dt) {
 
     let nextPosition = current.position - car.speed * dt;
     if (ahead) {
-      // Zero is the only hard minimum. Resting distance is reached through
-      // predictive braking and creeping, never by moving a car backwards.
-      const collisionBoundary = ahead.position + (car.length + aheadCar.length) / 2;
-      if (nextPosition < collisionBoundary) {
-        nextPosition = collisionBoundary;
+      // Preserve an applicable resting gap once it is available. If the signal
+      // changes after a smaller moving gap has already formed, never move the
+      // follower backwards merely to manufacture extra space.
+      const minimumPosition = minimumFollowingPosition(
+        current.position,
+        ahead.position,
+        car.length,
+        aheadCar.length,
+        expectsToStop ? standstillGap : 0,
+      );
+      if (nextPosition < minimumPosition) {
+        nextPosition = minimumPosition;
         car.speed = Math.min(car.speed, ahead.speed);
       }
     }
