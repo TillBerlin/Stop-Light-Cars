@@ -6,6 +6,7 @@ import {
   canReleaseFromQueue,
   cannotStopBeforeLine,
   distanceToCarAhead,
+  desiredFollowingDistance,
   entranceGap,
   followsThreeStripeRule,
   hasStartingClearance,
@@ -181,6 +182,12 @@ test('increases moving safety distance with closing speed, not shared forward sp
   assert.equal(movingSafetyDistance(2, 10, 5, 5, 1), 14.5);
   assert.equal(movingSafetyDistance(2, 5, 10, 5, 1), 2);
   assert.equal(movingSafetyDistance(6, .2, .2, 5, .5), 6);
+});
+
+test('uses the queue gap only while the signal requires the car to stop', () => {
+  assert.equal(desiredFollowingDistance(2, 6, false), 2);
+  assert.equal(desiredFollowingDistance(2, 6, true), 6);
+  assert.equal(desiredFollowingDistance(8, 6, true), 8);
 });
 
 test('projects a braking leader through the driver reaction time', () => {

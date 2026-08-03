@@ -109,6 +109,16 @@ export function movingSafetyDistance(
   return baseSafetyDistance + reactionDistance + speedDifferenceDistance;
 }
 
+export function desiredFollowingDistance(
+  safetyDistance,
+  standstillDistance,
+  signalRequiresStop,
+) {
+  return signalRequiresStop
+    ? Math.max(safetyDistance, standstillDistance)
+    : safetyDistance;
+}
+
 export function needsEmergencyBraking(
   gap,
   followerSpeed,
