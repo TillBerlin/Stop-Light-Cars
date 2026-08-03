@@ -67,3 +67,16 @@ test('uses time-to-contact hysteresis while emergency braking', () => {
   assert.equal(request(CONTROL.HOLD), CONTROL.ACCELERATE);
   assert.equal(request(CONTROL.EMERGENCY_BRAKE), CONTROL.EMERGENCY_BRAKE);
 });
+
+test('accelerates into a green-light gap larger than the normal safety distance', () => {
+  assert.equal(desiredControl({
+    activeControl: CONTROL.ACCELERATE,
+    gap: 6,
+    desiredGap: 2,
+    followerSpeed: 0,
+    leaderSpeed: 0,
+    mustStop: false,
+    targetDistance: 4,
+    creepSpeed: 1.5,
+  }), CONTROL.ACCELERATE);
+});

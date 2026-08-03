@@ -1,6 +1,7 @@
 import {
   canCloseGapOnRed,
   cannotStopBeforeLine,
+  desiredFollowingDistance,
   distanceToCarAhead,
   entranceGap,
   followsThreeStripeRule,
@@ -274,8 +275,8 @@ function updateLane(lane, dt) {
     let targetDistance = Infinity;
 
     if (ahead) {
-      desiredGap = movingSafetyDistance(
-        standstillGap,
+      const safetyDistance = movingSafetyDistance(
+        settings.topGap,
         current.speed,
         ahead.speed,
         BRAKE_RATE,
@@ -284,7 +285,13 @@ function updateLane(lane, dt) {
           ? EMERGENCY_BRAKE_RATE
           : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
       );
-      targetDistance = gap - standstillGap;
+      desiredGap = desiredFollowingDistance(
+        safetyDistance,
+        standstillGap,
+        signalRequiresStop,
+      );
+      const targetGap = signalRequiresStop ? standstillGap : settings.topGap;
+      targetDistance = gap - targetGap;
       if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
     }
 
