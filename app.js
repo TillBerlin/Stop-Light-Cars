@@ -47,6 +47,9 @@ const ORANGE_DURATION = 1;
 const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 const REACTION_TIME = .5;
+// A 1.5-second moving headway is a moderate human following interval. The
+// resting-gap controls still determine the compact spacing of stopped queues.
+const MOVING_TIME_HEADWAY = 1.5;
 const MOVEMENT_WINDOW = .2;
 const STOP_WINDOW = .1;
 const STOP_POSITION_TOLERANCE = .15;
@@ -334,6 +337,7 @@ function updateLane(lane, dt) {
         ahead.control === CONTROL.EMERGENCY_BRAKE
           ? EMERGENCY_BRAKE_RATE
           : ahead.control === CONTROL.BRAKE ? BRAKE_RATE : 0,
+        MOVING_TIME_HEADWAY,
       );
       desiredGap = desiredFollowingDistance(safetyDistance, standstillGap, expectsToStop);
       const targetGap = expectsToStop ? standstillGap : settings.topGap;
@@ -518,6 +522,7 @@ function materializeArrivingCars() {
       settings.topGap,
       BRAKE_RATE,
       REACTION_TIME,
+      MOVING_TIME_HEADWAY,
     );
     lane.cars.push(createCar(ROAD_MAX, lane.index, pending.profileIndex, initialSpeed));
     lane.pendingArrivals.shift();

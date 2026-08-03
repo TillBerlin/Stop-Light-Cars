@@ -119,6 +119,7 @@ export function movingSafetyDistance(
   brakingRate,
   responseTime,
   leaderDeceleration = 0,
+  timeHeadway = 0,
 ) {
   // Project an already-braking leader through the response delay rather than
   // treating its sampled speed as constant until the follower reacts.
@@ -141,7 +142,13 @@ export function movingSafetyDistance(
     followerSpeed ** 2 / (2 * brakingRate)
       - projectedLeaderSpeed ** 2 / (2 * leaderStoppingRate),
   );
-  return baseSafetyDistance + reactionDistance + speedDifferenceDistance;
+  // The braking terms only protect against a speed difference. Without a
+  // time headway, two cars travelling at the same speed would be content to
+  // run at the standstill gap, leaving no room for ordinary human variation.
+  return baseSafetyDistance
+    + followerSpeed * timeHeadway
+    + reactionDistance
+    + speedDifferenceDistance;
 }
 
 export function desiredFollowingDistance(
@@ -195,16 +202,19 @@ export function safeArrivalSpeed(
   baseSafetyDistance,
   brakingRate,
   responseTime,
+  timeHeadway = 0,
 ) {
   if (!Number.isFinite(availableGap)) return speedLimit;
   if (availableGap < baseSafetyDistance) return 0;
 
   let low = Math.min(leaderSpeed, speedLimit);
   let high = speedLimit;
-  const usableDistance = availableGap - baseSafetyDistance;
   for (let i = 0; i < 24; i++) {
     const candidate = (low + high) / 2;
-    if (relativeStoppingDistance(candidate, leaderSpeed, brakingRate, responseTime) <= usableDistance) {
+    const requiredDistance = baseSafetyDistance
+      + candidate * timeHeadway
+      + relativeStoppingDistance(candidate, leaderSpeed, brakingRate, responseTime);
+    if (requiredDistance <= availableGap) {
       low = candidate;
     } else {
       high = candidate;
