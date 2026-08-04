@@ -82,6 +82,8 @@ const controlDefinitions = [
 
 const el = id => document.getElementById(id);
 const controls = el('controls');
+const statisticsControls = el('statisticsControls');
+const statisticsSettings = Object.fromEntries(Object.keys(graphAxes).map(key => [key, settings[key]]));
 const mobileView = { overview: false };
 let animationFrameId = null;
 let graphRenderTimer = null;
@@ -128,6 +130,21 @@ for (const def of controlDefinitions) {
   controls.appendChild(wrapper);
 }
 
+for (const [key, axis] of Object.entries(graphAxes)) {
+  const wrapper = document.createElement('div');
+  wrapper.className = `slider-control ${key === 'stripeCompliance' || key === 'stripeLength' ? 'bottom' : ''}`;
+  const inputId = `statistics-${key}`;
+  wrapper.innerHTML = `<label for="${inputId}"><span>${axis.label}</span><output>${statisticsSettings[key]} ${axis.unit}</output></label><input id="${inputId}" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings[key]}"><small>Used only for batch statistics</small>`;
+  const input = wrapper.querySelector('input');
+  const output = wrapper.querySelector('output');
+  input.addEventListener('input', () => {
+    statisticsSettings[key] = Number(input.value);
+    output.textContent = `${statisticsSettings[key]} ${axis.unit}`;
+    scheduleGraphRender();
+  });
+  statisticsControls.appendChild(wrapper);
+}
+
 function chartPolyline(points, lane, xScale, yScale) {
   return points.map(point => `${xScale(point.x)},${yScale(point.lanes[lane])}`).join(' ');
 }
@@ -137,7 +154,7 @@ function renderStatisticsGraph() {
   const metricKey = el('graphMetric').value || 'throughput';
   const axis = graphAxes[axisKey];
   const metric = graphMetrics[metricKey];
-  const points = buildStatisticsSeries(axisKey, metricKey, settings);
+  const points = buildStatisticsSeries(axisKey, metricKey, statisticsSettings);
   const width = 760, height = 350, left = 66, right = 22, top = 22, bottom = 55;
   const maximum = Math.max(1, ...points.flatMap(point => point.lanes)) * 1.1;
   const xScale = value => left + (value - axis.min) / (axis.max - axis.min) * (width - left - right);
@@ -153,7 +170,7 @@ function renderStatisticsGraph() {
     ${points.map(point => `<circle class="chart-point lane-a" cx="${xScale(point.x)}" cy="${yScale(point.lanes[0])}" r="3"/><circle class="chart-point lane-b" cx="${xScale(point.x)}" cy="${yScale(point.lanes[1])}" r="3"/>`).join('')}
     <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text>
   </svg>`;
-  el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => `<div><dt>${def.label}</dt><dd>${settings[key]}${def.unit}</dd></div>`).join('');
+  el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => `<div><dt>${def.label}</dt><dd>${statisticsSettings[key]}${def.unit}</dd></div>`).join('');
 }
 
 function scheduleGraphRender() {
