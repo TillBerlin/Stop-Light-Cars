@@ -196,6 +196,23 @@ test('batch statistics run the exact car simulation for their configured duratio
   assert.ok(result.waitingTime.every(wait => wait >= 0));
 });
 
+test('aggressive drivers cross strictly more cars than very cautious drivers without crashes', () => {
+  const parameters = {
+    greenPhase: 20, arrivalRate: 10, stripeCompliance: 100, stripeLength: 50,
+  };
+  const cautious = runStatisticsSimulation({
+    ...parameters, aggressivenessMin: 1, aggressivenessMax: 1,
+  }, 42, 300);
+  const aggressive = runStatisticsSimulation({
+    ...parameters, aggressivenessMin: 5, aggressivenessMax: 5,
+  }, 42, 300);
+
+  assert.ok(aggressive.throughput.every((count, lane) => count > cautious.throughput[lane]),
+    `expected ${aggressive.throughput} to exceed ${cautious.throughput}`);
+  assert.equal(cautious.diagnostics.crashes, 0);
+  assert.equal(aggressive.diagnostics.crashes, 0);
+});
+
 test('the visible simulation stops at five minutes and retains crossed counts', () => {
   restartSimulation();
   const result = runHeadlessSimulation(SIMULATION_DURATION_SECONDS + 60);
