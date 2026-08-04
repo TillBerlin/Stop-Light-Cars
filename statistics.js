@@ -1,5 +1,7 @@
 export const GRAPH_RUNS = 3;
 export const GRAPH_DURATION_SECONDS = 2 * 60;
+export const GRAPH_RUN_OPTIONS = [3, 5, 10];
+export const GRAPH_DURATION_OPTIONS = [3, 5, 10].map(minutes => minutes * 60);
 
 export const graphAxes = {
   greenPhase: { label: 'Green light duration', min: 5, max: 30, step: 1, unit: 's' },
@@ -28,22 +30,27 @@ export function graphScale(maximumValue, targetTickCount = 6) {
   };
 }
 
-export function buildStatisticsSeries(axisKey, metricKey, fixedParameters, simulateRun) {
+export function buildStatisticsSeries(axisKey, metricKey, fixedParameters, simulateRun, options = {}) {
   if (typeof simulateRun !== 'function') throw new TypeError('An exact simulation runner is required');
+  const runs = options.runs ?? GRAPH_RUNS;
+  const duration = options.duration ?? GRAPH_DURATION_SECONDS;
+  if (!Number.isInteger(runs) || runs < 1) throw new RangeError('Statistics runs must be a positive integer');
+  if (!Number.isFinite(duration) || duration <= 0) throw new RangeError('Statistics duration must be positive');
   const axis = graphAxes[axisKey];
   const pointCount = Math.round((axis.max - axis.min) / axis.step) + 1;
   return Array.from({ length: pointCount }, (_, pointIndex) => {
     const x = axis.min + pointIndex * axis.step;
     const sums = [0, 0];
-    for (let run = 0; run < GRAPH_RUNS; run++) {
+    for (let run = 0; run < runs; run++) {
       // Common random numbers keep adjacent parameter points comparable.
       const parameters = axisKey === 'aggressiveness'
         ? { ...fixedParameters, aggressiveness: x, aggressivenessMin: x, aggressivenessMax: x }
         : { ...fixedParameters, [axisKey]: x };
-      const result = simulateRun(parameters, 0x9e3779b9 ^ (run * 7919));
+      const result = simulateRun(parameters, 0x9e3779b9 ^ (run * 7919), duration);
       sums[0] += result[metricKey][0];
       sums[1] += result[metricKey][1];
     }
-    return { x, lanes: sums.map(value => value / GRAPH_RUNS) };
+    const lanes = sums.map(value => value / runs);
+    return { x, lanes, relativeAdvantage: lanes[1] === 0 ? null : lanes[0] / lanes[1] };
   });
 }

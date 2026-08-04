@@ -110,17 +110,17 @@
       </section>
 
       <section class="statistics-card" aria-labelledby="statisticsTitle">
-        <div class="statistics-heading"><div><p class="eyebrow">Batch simulation</p><h2 id="statisticsTitle">Compare lane performance</h2></div><p>Each point is the average of <strong>3 simulations</strong>, each lasting <strong>2 minutes</strong>. Statistics run only when requested.</p></div>
+        <div class="statistics-heading"><div><p class="eyebrow">Batch simulation</p><h2 id="statisticsTitle">Compare lane performance</h2></div><p>Choose the number and length of simulations averaged at each point. Statistics run only when requested.</p></div>
         <div class="statistics-controls" aria-label="Statistics parameters">
           <p class="graph-kicker">Statistics parameters</p>
           <div class="sliders" id="statisticsControls"></div>
         </div>
         <div class="graph-layout">
           <div class="graph-main">
-            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="arrivalRate">Arrival rate</option><option value="aggressiveness">Driver aggressiveness</option></select></label></div>
+            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="arrivalRate">Arrival rate</option><option value="aggressiveness">Driver aggressiveness</option></select></label><label>Runs per point<select id="graphRuns"><option>3</option><option>5</option><option>10</option></select></label><label>Run length<select id="graphDuration"><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label></div>
             <div class="statistics-run"><button id="runStatisticsBtn" class="primary-btn" type="button">Run statistics</button><p id="statisticsStatus" role="status">Choose settings, then run statistics to draw the graph.</p></div>
             <div class="chart-wrap" id="statisticsChart" aria-live="polite"><div class="chart-placeholder">The graph will appear after you run statistics.</div></div>
-            <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span></div>
+            <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span><span><i class="relative"></i>Relative advantage (A/B)</span></div>
           </div>
           <aside class="graph-notes"><span class="graph-kicker">Fixed parameters</span><h3>What stays constant</h3><p>The selected x-axis parameter varies across its full range. All other values come from the statistics sliders above.</p><dl id="fixedParameters"></dl><p class="waiting-note"><b>Waiting time</b> is measured from a car's spawn time until it crosses the stop line.</p></aside>
         </div>

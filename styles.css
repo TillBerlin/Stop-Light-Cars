@@ -43,3 +43,4 @@ footer {display:flex;justify-content:space-between;gap:20px;color:#89928e;font:4
 @media(max-width:900px){.statistics-controls .sliders{grid-template-columns:repeat(2,1fr)}.graph-layout{grid-template-columns:1fr}.graph-notes{border-left:0;border-top:1px solid #deddd6;padding:20px 0 0}.chart-wrap{min-height:0}}
 @media(max-width:900px){.story-heading{grid-template-columns:1fr;gap:12px}}
 @media(max-width:600px){.statistics-controls .sliders{grid-template-columns:1fr}.statistics-card,.story-card{padding:18px}.statistics-heading{display:block}.statistics-heading>p{margin-top:10px}.graph-selectors,.idea-comparison,.point-grid,.limitations-list{grid-template-columns:1fr}.chart-title{font-size:8px}.idea-comparison{gap:1px}.limitations-list{gap:0}}
+.chart-line.relative{stroke:#6f54a3;stroke-width:2;stroke-dasharray:6 5}.chart-legend{flex-wrap:wrap}.chart-legend .relative{background:#6f54a3}.ratio-label,.relative-title{fill:#6f54a3}

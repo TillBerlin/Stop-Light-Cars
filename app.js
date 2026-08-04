@@ -148,20 +148,29 @@ for (const def of controlDefinitions) {
 
 for (const [key, axis] of Object.entries(graphAxes)) {
   const wrapper = document.createElement('div');
-  wrapper.className = `slider-control ${key === 'stripeCompliance' || key === 'stripeLength' ? 'bottom' : ''}`;
+  const isRange = key === 'aggressiveness';
+  wrapper.className = `slider-control ${isRange ? 'range-control' : ''} ${key === 'stripeCompliance' || key === 'stripeLength' ? 'bottom' : ''}`;
   const inputId = `statistics-${key}`;
-  wrapper.innerHTML = `<label for="${inputId}"><span>${axis.label}</span><output>${statisticsSettings[key]} ${axis.unit}</output></label><input id="${inputId}" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings[key]}"><small>Used only for batch statistics</small>`;
-  const input = wrapper.querySelector('input');
+  wrapper.innerHTML = isRange
+    ? `<label><span>${axis.label}</span><output>${statisticsSettings.aggressivenessMin}–${statisticsSettings.aggressivenessMax}</output></label><div class="range-inputs"><input class="range-min" aria-label="Minimum statistics driver aggressiveness" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings.aggressivenessMin}"><input class="range-max" aria-label="Maximum statistics driver aggressiveness" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings.aggressivenessMax}"></div><small>Random driver level within these bounds</small>`
+    : `<label for="${inputId}"><span>${axis.label}</span><output>${statisticsSettings[key]} ${axis.unit}</output></label><input id="${inputId}" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings[key]}"><small>Used only for batch statistics</small>`;
+  const inputs = [...wrapper.querySelectorAll('input')];
   const output = wrapper.querySelector('output');
-  input.addEventListener('input', () => {
-    statisticsSettings[key] = Number(input.value);
-    if (key === 'aggressiveness') {
-      statisticsSettings.aggressivenessMin = statisticsSettings[key];
-      statisticsSettings.aggressivenessMax = statisticsSettings[key];
+  inputs.forEach(input => input.addEventListener('input', event => {
+    if (isRange) {
+      const [minimum, maximum] = inputs;
+      if (event.target === minimum && Number(minimum.value) > Number(maximum.value)) maximum.value = minimum.value;
+      if (event.target === maximum && Number(maximum.value) < Number(minimum.value)) minimum.value = maximum.value;
+      statisticsSettings.aggressivenessMin = Number(minimum.value);
+      statisticsSettings.aggressivenessMax = Number(maximum.value);
+      statisticsSettings.aggressiveness = statisticsSettings.aggressivenessMin;
+      output.textContent = `${minimum.value}–${maximum.value}`;
+    } else {
+      statisticsSettings[key] = Number(input.value);
+      output.textContent = `${statisticsSettings[key]} ${axis.unit}`;
     }
-    output.textContent = `${statisticsSettings[key]} ${axis.unit}`;
     markStatisticsStale();
-  });
+  }));
   statisticsControls.appendChild(wrapper);
 }
 
@@ -174,20 +183,32 @@ function renderStatisticsGraph() {
   const metricKey = el('graphMetric').value || 'throughput';
   const axis = graphAxes[axisKey];
   const metric = graphMetrics[metricKey];
-  const points = buildStatisticsSeries(axisKey, metricKey, statisticsSettings, runStatisticsSimulation);
-  const width = 760, height = 350, left = 66, right = 22, top = 22, bottom = 55;
+  const runs = Number(el('graphRuns').value);
+  const duration = Number(el('graphDuration').value);
+  const points = buildStatisticsSeries(axisKey, metricKey, statisticsSettings, runStatisticsSimulation, { runs, duration });
+  const width = 760, height = 350, left = 66, right = 66, top = 22, bottom = 55;
   const { maximum, ticks } = graphScale(Math.max(...points.flatMap(point => point.lanes)) * 1.05);
   const xScale = value => left + (value - axis.min) / (axis.max - axis.min) * (width - left - right);
   const yScale = value => top + (1 - value / maximum) * (height - top - bottom);
+  const ratios = points.map(point => point.relativeAdvantage).filter(Number.isFinite);
+  const ratioMinimum = Math.min(...ratios, 1);
+  const ratioMaximum = Math.max(...ratios, 1);
+  const ratioPadding = Math.max(.05, (ratioMaximum - ratioMinimum) * .1);
+  const ratioLow = Math.max(0, ratioMinimum - ratioPadding);
+  const ratioHigh = ratioMaximum + ratioPadding;
+  const ratioScale = value => top + (ratioHigh - value) / (ratioHigh - ratioLow) * (height - top - bottom);
+  const ratioTicks = Array.from({ length: 5 }, (_, index) => ratioLow + (ratioHigh - ratioLow) * index / 4);
   const stride = Math.max(1, Math.ceil(points.length / 6));
   const xTicks = points.filter((_, index) => index % stride === 0 || index === points.length - 1);
   el('statisticsChart').innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${metric.label} by ${axis.label} for lanes A and B">
     ${ticks.map(value => `<line class="chart-grid" x1="${left}" y1="${yScale(value)}" x2="${width - right}" y2="${yScale(value)}"/><text class="chart-label" x="${left - 10}" y="${yScale(value) + 4}" text-anchor="end">${value}</text>`).join('')}
+    ${ratioTicks.map(value => `<text class="chart-label ratio-label" x="${width - right + 10}" y="${ratioScale(value) + 4}">${value.toFixed(2)}</text>`).join('')}
     ${xTicks.map(point => `<text class="chart-label" x="${xScale(point.x)}" y="${height - 28}" text-anchor="middle">${point.x}${axis.unit}</text>`).join('')}
-    <line class="chart-axis" x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}"/><line class="chart-axis" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"/>
+    <line class="chart-axis" x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}"/><line class="chart-axis" x1="${width - right}" y1="${top}" x2="${width - right}" y2="${height - bottom}"/><line class="chart-axis" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"/>
     <polyline class="chart-line lane-a" points="${chartPolyline(points, 0, xScale, yScale)}"/><polyline class="chart-line lane-b" points="${chartPolyline(points, 1, xScale, yScale)}"/>
     ${points.map(point => `<circle class="chart-point lane-a" cx="${xScale(point.x)}" cy="${yScale(point.lanes[0])}" r="3"/><circle class="chart-point lane-b" cx="${xScale(point.x)}" cy="${yScale(point.lanes[1])}" r="3"/>`).join('')}
-    <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text>
+    <polyline class="chart-line relative" points="${points.filter(point => Number.isFinite(point.relativeAdvantage)).map(point => `${xScale(point.x)},${ratioScale(point.relativeAdvantage)}`).join(' ')}"/>
+    <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text><text class="chart-title relative-title" transform="translate(${width - 10} ${(top + height - bottom) / 2}) rotate(90)" text-anchor="middle">Relative advantage (A/B)</text>
   </svg>`;
   el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => {
     const value = key === 'aggressiveness'
@@ -197,7 +218,7 @@ function renderStatisticsGraph() {
   }).join('');
   el('runStatisticsBtn').disabled = false;
   el('runStatisticsBtn').textContent = 'Run statistics';
-  el('statisticsStatus').textContent = 'Statistics are up to date.';
+  el('statisticsStatus').textContent = `Up to date: ${runs} runs × ${duration / 60} minutes.`;
 }
 
 function markStatisticsStale() {
@@ -920,6 +941,8 @@ el('viewToggle').addEventListener('click', () => {
 });
 el('graphAxis').addEventListener('change', markStatisticsStale);
 el('graphMetric').addEventListener('change', markStatisticsStale);
+el('graphRuns').addEventListener('change', markStatisticsStale);
+el('graphDuration').addEventListener('change', markStatisticsStale);
 el('runStatisticsBtn').addEventListener('click', () => {
   const button = el('runStatisticsBtn');
   button.disabled = true;
