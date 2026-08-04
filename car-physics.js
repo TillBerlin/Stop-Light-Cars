@@ -153,9 +153,9 @@ export function preferredFollowingDistance(baseDistance, speed, timeHeadway) {
 export function desiredFollowingDistance(
   safetyDistance,
   standstillDistance,
-  signalRequiresStop,
+  queueIsForming,
 ) {
-  return signalRequiresStop
+  return queueIsForming
     ? Math.max(safetyDistance, standstillDistance)
     : safetyDistance;
 }
