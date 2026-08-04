@@ -21,22 +21,22 @@ test('statistics use three two-minute runs and produce both lane values', () => 
   assert.equal(calls.length, series.length * GRAPH_RUNS);
 });
 
-test('statistics support selectable run counts, durations, and lane advantage ratios', () => {
+test('statistics support selectable run counts, durations, and lane B over lane A advantage ratios', () => {
   assert.deepEqual(GRAPH_RUN_OPTIONS, [3, 5, 10]);
   assert.deepEqual(GRAPH_DURATION_OPTIONS, [180, 300, 600]);
   const calls = [];
   const series = buildStatisticsSeries('greenPhase', 'throughput', defaults, (parameters, seed, duration) => {
     calls.push({ seed, duration });
-    return { throughput: [12, 8], waitingTime: [1, 2] };
+    return { throughput: [8, 12], waitingTime: [1, 2] };
   }, { runs: 5, duration: 300 });
   assert.equal(calls.length, series.length * 5);
   assert.ok(calls.every(call => call.duration === 300));
   assert.ok(series.every(point => point.relativeAdvantage === 1.5));
 });
 
-test('relative advantage is unavailable when Lane B has no performance', () => {
+test('relative advantage is unavailable when Lane A has no performance', () => {
   const series = buildStatisticsSeries('greenPhase', 'throughput', defaults, () => ({
-    throughput: [3, 0], waitingTime: [0, 0],
+    throughput: [0, 3], waitingTime: [0, 0],
   }));
   assert.ok(series.every(point => point.relativeAdvantage === null));
 });

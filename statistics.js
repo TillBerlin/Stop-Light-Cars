@@ -51,6 +51,6 @@ export function buildStatisticsSeries(axisKey, metricKey, fixedParameters, simul
       sums[1] += result[metricKey][1];
     }
     const lanes = sums.map(value => value / runs);
-    return { x, lanes, relativeAdvantage: lanes[1] === 0 ? null : lanes[0] / lanes[1] };
+    return { x, lanes, relativeAdvantage: lanes[0] === 0 ? null : lanes[1] / lanes[0] };
   });
 }
