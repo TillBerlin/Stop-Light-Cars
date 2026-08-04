@@ -56,6 +56,16 @@ const REACTION_TIME = .5;
 const COLLISION_REACTION_HORIZON = 1;
 const MAXIMUM_ACCELERATION = 2;
 const MAXIMUM_JERK = 2;
+// Ordinary pedal modulation is driver-limited; an emergency stop is
+// limited by how fast the brake system can build pressure.
+const EMERGENCY_JERK = 10;
+
+export function jerkLimitFor(behavior, requestedAcceleration, currentAcceleration) {
+  return behavior === BEHAVIOR.EMERGENCY_BRAKE
+    && requestedAcceleration < currentAcceleration
+    ? EMERGENCY_JERK
+    : MAXIMUM_JERK;
+}
 // A 1.5-second moving headway is a moderate human following interval. The
 // resting-gap controls still determine the compact spacing of stopped queues.
 const MOVING_TIME_HEADWAY = 1.5;
@@ -484,10 +494,15 @@ function updateLane(lane, dt) {
         transitionBehavior(car, BEHAVIOR.DRIVE, 'collision-risk-cleared', { gap, collisionTime });
       }
 
+      const jerkLimit = jerkLimitFor(
+        car.behavior,
+        requestedAcceleration,
+        current.acceleration,
+      );
       car.acceleration = limitAccelerationByJerk(
         current.acceleration,
         requestedAcceleration,
-        MAXIMUM_JERK,
+        jerkLimit,
         dt,
       );
       car.control = car.behavior === BEHAVIOR.EMERGENCY_BRAKE
