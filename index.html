@@ -67,17 +67,6 @@
         </div>
       </section>
 
-      <section class="statistics-card" aria-labelledby="statisticsTitle">
-        <div class="statistics-heading"><div><p class="eyebrow">Batch simulation</p><h2 id="statisticsTitle">Compare lane performance</h2></div><p>Each point is the average of <strong>10 simulations</strong>, each lasting <strong>5 minutes</strong>.</p></div>
-        <div class="graph-layout">
-          <div class="graph-main">
-            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="arrivalRate">Arrival rate</option></select></label></div>
-            <div class="chart-wrap" id="statisticsChart" aria-live="polite"></div>
-            <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span></div>
-          </div>
-          <aside class="graph-notes"><span class="graph-kicker">Fixed parameters</span><h3>What stays constant</h3><p>The selected x-axis parameter varies across its full range. All other values come from the controls below.</p><dl id="fixedParameters"></dl><p class="waiting-note"><b>Waiting time</b> is measured from a car's spawn time until it crosses the stop line.</p></aside>
-        </div>
-      </section>
 
       <section class="story-card" aria-labelledby="modelTitle">
         <p class="eyebrow">How the model works</p>
@@ -118,6 +107,18 @@
           <button id="restartBtn" type="button"><span>↻</span><span>Restart</span></button>
         </div>
         <div class="sliders" id="controls"></div>
+      </section>
+
+      <section class="statistics-card" aria-labelledby="statisticsTitle">
+        <div class="statistics-heading"><div><p class="eyebrow">Batch simulation</p><h2 id="statisticsTitle">Compare lane performance</h2></div><p>Each point is the average of <strong>10 simulations</strong>, each lasting <strong>5 minutes</strong>.</p></div>
+        <div class="graph-layout">
+          <div class="graph-main">
+            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="arrivalRate">Arrival rate</option></select></label></div>
+            <div class="chart-wrap" id="statisticsChart" aria-live="polite"></div>
+            <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span></div>
+          </div>
+          <aside class="graph-notes"><span class="graph-kicker">Fixed parameters</span><h3>What stays constant</h3><p>The selected x-axis parameter varies across its full range. All other values come from the controls below.</p><dl id="fixedParameters"></dl><p class="waiting-note"><b>Waiting time</b> is measured from a car's spawn time until it crosses the stop line.</p></aside>
+        </div>
       </section>
 
       <footer><p><b>MODEL NOTE</b> Cars are 3.8–5.2m long. In the selected striped zone before the light, compliant Lane B drivers stop three 2m stripes behind the car ahead. Outside it, all drivers use Lane A's normal gap.</p><p>3 STRIPES · GOOD VIBES</p></footer>

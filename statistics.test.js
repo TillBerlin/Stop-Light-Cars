@@ -18,3 +18,14 @@ test('waiting time is measured for each lane from spawn until crossing', () => {
   assert.ok(result.throughput.every(value => value > 0));
   assert.ok(result.waitingTime.every(value => value >= 0));
 });
+
+test('striped-zone compliance improves Lane B without changing Lane A', () => {
+  const series = buildStatisticsSeries('stripeCompliance', 'throughput', defaults);
+  const laneA = series.map(point => point.lanes[0]);
+  const laneB = series.map(point => point.lanes[1]);
+
+  assert.ok(laneA.every(value => value === laneA[0]));
+  assert.ok(laneB.every((value, index) => index === 0 || value >= laneB[index - 1]));
+  assert.equal(laneB[0], laneA[0]);
+  assert.ok(laneB.at(-1) > laneA.at(-1));
+});
