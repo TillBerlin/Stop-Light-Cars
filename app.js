@@ -208,7 +208,7 @@ function renderStatisticsGraph() {
     <polyline class="chart-line lane-a" points="${chartPolyline(points, 0, xScale, yScale)}"/><polyline class="chart-line lane-b" points="${chartPolyline(points, 1, xScale, yScale)}"/>
     ${points.map(point => `<circle class="chart-point lane-a" cx="${xScale(point.x)}" cy="${yScale(point.lanes[0])}" r="3"/><circle class="chart-point lane-b" cx="${xScale(point.x)}" cy="${yScale(point.lanes[1])}" r="3"/>`).join('')}
     <polyline class="chart-line relative" points="${points.filter(point => Number.isFinite(point.relativeAdvantage)).map(point => `${xScale(point.x)},${ratioScale(point.relativeAdvantage)}`).join(' ')}"/>
-    <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text><text class="chart-title relative-title" transform="translate(${width - 10} ${(top + height - bottom) / 2}) rotate(90)" text-anchor="middle">Relative advantage (A/B)</text>
+    <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text><text class="chart-title relative-title" transform="translate(${width - 10} ${(top + height - bottom) / 2}) rotate(90)" text-anchor="middle">Relative advantage (B/A)</text>
   </svg>`;
   el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => {
     const value = key === 'aggressiveness'
