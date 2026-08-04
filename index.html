@@ -55,6 +55,18 @@
         </div>
       </section>
 
+      <section class="story-card idea-card" aria-labelledby="ideaTitle">
+        <p class="eyebrow">The idea</p>
+        <div class="story-heading">
+          <h2 id="ideaTitle">More space can mean a quicker start</h2>
+          <p>Much of the waiting at a green light happens because drivers start one after another. Each driver waits for the car ahead to move, then reacts and starts.</p>
+        </div>
+        <div class="idea-comparison" aria-label="Comparison of normal and larger gaps">
+          <div><span class="step-number">1 → 2 → 3</span><strong>Small gaps</strong><p>Cars leave in a chain, passing the start-up delay down the queue.</p></div>
+          <div class="idea-result"><span class="step-number">1 + 2 + 3</span><strong>Larger gaps</strong><p>Several cars have room to begin moving at the same time.</p></div>
+        </div>
+      </section>
+
       <section class="statistics-card" aria-labelledby="statisticsTitle">
         <div class="statistics-heading"><div><p class="eyebrow">Batch simulation</p><h2 id="statisticsTitle">Compare lane performance</h2></div><p>Each point is the average of <strong>10 simulations</strong>, each lasting <strong>5 minutes</strong>.</p></div>
         <div class="graph-layout">
@@ -65,6 +77,37 @@
           </div>
           <aside class="graph-notes"><span class="graph-kicker">Fixed parameters</span><h3>What stays constant</h3><p>The selected x-axis parameter varies across its full range. All other values come from the controls below.</p><dl id="fixedParameters"></dl><p class="waiting-note"><b>Waiting time</b> is measured from a car's spawn time until it crosses the stop line.</p></aside>
         </div>
+      </section>
+
+      <section class="story-card" aria-labelledby="modelTitle">
+        <p class="eyebrow">How the model works</p>
+        <div class="story-heading">
+          <h2 id="modelTitle">How the cars behave</h2>
+          <p>This is a simple car-following model. Each car watches the light, the car ahead and the space between them.</p>
+        </div>
+        <div class="point-grid model-points">
+          <article><span>01</span><h3>Joining the queue</h3><p>Cars slow down for a red light and stop behind the car ahead. Lane A uses a normal two-metre gap. In the striped zone, compliant Lane B drivers aim for a six-metre gap.</p></article>
+          <article><span>02</span><h3>Starting on green</h3><p>The first car reacts to the green light. Other drivers start after the car ahead moves or when there is already enough clear space. A larger gap can therefore let several drivers react together.</p></article>
+          <article><span>03</span><h3>Following safely</h3><p>Moving cars adjust their speed to keep a safe distance. They accelerate smoothly, brake as the gap closes and use stronger braking if a collision becomes likely.</p></article>
+          <article><span>04</span><h3>Signals and new cars</h3><p>Drivers stop for red and decide whether it is safe to stop on orange. New cars keep arriving at the chosen rate, and wait off-screen if the road entrance is full.</p></article>
+        </div>
+      </section>
+
+      <section class="story-card limitations-card" aria-labelledby="limitationsTitle">
+        <p class="eyebrow">Limitations</p>
+        <div class="story-heading">
+          <h2 id="limitationsTitle">What we still need to learn</h2>
+          <p>The simulation shows a possibility, not a prediction. The idea needs safe real-world trials and independent evaluation before it could guide street design.</p>
+        </div>
+        <ul class="limitations-list">
+          <li><strong>Real drivers may behave differently.</strong> A model cannot capture every reaction, mistake or local driving habit.</li>
+          <li><strong>Participation is uncertain.</strong> Independent research should compare different ways to encourage the larger gap. Messages may need to fit the local language and culture, although drivers may also learn from one another once the benefit becomes visible.</li>
+          <li><strong>Not every junction has enough room.</strong> The queue needs sufficient road between this light and the previous junction. Larger gaps could otherwise block side streets, crossings or access points.</li>
+          <li><strong>Turning traffic can disrupt the pattern.</strong> Cars waiting to turn left or right, or stopping inside the junction, may prevent a coordinated start.</li>
+          <li><strong>The model simplifies the street.</strong> It does not represent lane changes, buses, bicycles, pedestrians, emergency vehicles, hills, poor weather or different vehicle performance.</li>
+          <li><strong>Safety must come first.</strong> A simultaneous start depends on good visibility and predictable behaviour. Trials must check for new risks to people crossing and for unexpected braking.</li>
+          <li><strong>Results depend on local conditions.</strong> Traffic volume, signal timing, queue length and the share of compliant drivers may change the benefit or remove it altogether.</li>
+        </ul>
       </section>
 
       <section class="control-panel" aria-label="Simulation controls">
