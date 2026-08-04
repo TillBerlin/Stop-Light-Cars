@@ -89,6 +89,57 @@
           <article><span>03</span><h3>Following safely</h3><p>Moving cars adjust their speed to keep a safe distance. They accelerate smoothly, brake as the gap closes and use stronger braking if a collision becomes likely.</p></article>
           <article><span>04</span><h3>Signals and new cars</h3><p>Drivers stop for red and decide whether it is safe to stop on orange. New cars keep arriving at the chosen rate, and wait off-screen if the road entrance is full.</p></article>
         </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Key terms</p>
+          <h3 class="model-subhead">The four numbers that describe a driver</h3>
+          <dl class="term-list">
+            <div>
+              <dt>Start-up time <span>seconds</span></dt>
+              <dd>How long a stopped driver takes to get going once it is their turn. The countdown begins when the light is green and the car ahead has started moving, or when there is already enough clear space. The car stays still until it finishes. This is the delay that passes down a queue one car at a time, and the delay the larger gap is meant to avoid.</dd>
+            </div>
+            <div>
+              <dt>Headway <span>seconds</span></dt>
+              <dd>The time gap a moving driver wants to keep to the car ahead — roughly "how many seconds behind". It is a time, not a distance, so the gap grows with speed: at 50 km/h a 1.5-second headway is about 21 metres. It shrinks to nothing at a standstill, where the resting gap takes over instead.</dd>
+            </div>
+            <div>
+              <dt>Jerk <span>m/s³</span></dt>
+              <dd>How fast the acceleration itself is allowed to change — in plain terms, how briskly a driver moves the pedal. Low jerk is a smooth, gradual squeeze; high jerk is a quick jab. It does not change how hard a car can eventually accelerate or brake, only how quickly it gets there, which is what makes a start feel gentle or sharp.</dd>
+            </div>
+            <div>
+              <dt>Acceleration and braking <span>m/s²</span></dt>
+              <dd>The strongest pull-away and the firmest comfortable stop a driver will normally choose. These are everyday limits, not the limits of the car. When a collision looks likely the driver abandons them and brakes as hard as the situation requires.</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Driver profiles</p>
+          <h3 class="model-subhead">What aggressiveness actually changes</h3>
+          <p class="model-lede">"Aggressiveness" is not a single dial inside the model. Each level is a bundle of the four values above, moved together. A more aggressive driver starts sooner, follows closer, works the pedals harder and accepts firmer braking. The <b>Driver mix</b> slider sets the lowest and highest level present; every car draws its own level when it appears and keeps that character for its whole run.</p>
+          <div class="profile-table-wrap">
+            <table class="profile-table">
+              <caption class="sr-only">Driver profile values by aggressiveness level</caption>
+              <thead>
+                <tr><th scope="col">Level</th><th scope="col">Start-up<span>s</span></th><th scope="col">Headway<span>s</span></th><th scope="col">Jerk<span>m/s³</span></th><th scope="col">Max accel.<span>m/s²</span></th><th scope="col">Braking<span>m/s²</span></th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row"><b>1</b> Very cautious</th><td>2.40</td><td>2.1</td><td>1.0</td><td>1.2</td><td>2.00</td></tr>
+                <tr><th scope="row"><b>2</b> Cautious</th><td>2.10</td><td>1.8</td><td>1.5</td><td>1.6</td><td>2.25</td></tr>
+                <tr class="profile-default"><th scope="row"><b>3</b> Normal</th><td>1.85</td><td>1.5</td><td>2.0</td><td>2.0</td><td>2.50</td></tr>
+                <tr><th scope="row"><b>4</b> Assertive</th><td>1.50</td><td>1.2</td><td>3.0</td><td>2.5</td><td>2.75</td></tr>
+                <tr><th scope="row"><b>5</b> Aggressive</th><td>1.20</td><td>0.9</td><td>4.0</td><td>3.0</td><td>3.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="model-footnote">Level 3 is the default population. Each car's start-up time is drawn within 0.15 s of its profile value, so even identical drivers do not start in lockstep. <b>Emergency braking is deliberately not a personality setting:</b> once a collision is predicted, every driver builds brake pressure at the same 10 m/s³ vehicle limit, because that is a property of the car rather than the person.</p>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Gaps at a standstill</p>
+          <h3 class="model-subhead">Where the idea lives</h3>
+          <p class="model-lede">Headway describes moving traffic and fades to zero at rest, so a separate <b>resting gap</b> governs a stopped queue. Lane A always uses 2 metres. In the striped zone, compliant Lane B drivers instead target the <b>Lane B intended distance</b> (4–8 metres, 6 by default) — the whole point of the experiment. A driver commits to that larger gap while still braking, as soon as it can predict its place in a queue forming on red, and holds it while it creeps and waits. The moment the light turns green the queue is dissolving rather than forming, so even a car still standing reverts to the ordinary 2-metre gap. Outside the striped zone, and for non-compliant drivers, Lane B behaves exactly like Lane A.</p>
+        </div>
       </section>
 
       <section class="story-card limitations-card" aria-labelledby="limitationsTitle">
@@ -126,7 +177,7 @@
         </div>
       </section>
 
-      <footer><p><b>MODEL NOTE</b> Cars are 3.8–5.2m long. In the selected striped zone before the light, compliant Lane B drivers stop the selected intended distance (4-8m, default six) behind the car ahead. Outside it, all drivers use Lane A's normal gap.</p><p>3 STRIPES · GOOD VIBES</p></footer>
+      <footer><p><b>MODEL NOTE</b> Cars are 3.8–5.2m long and the simulation steps every 50ms. See <a href="#modelTitle">How the cars behave</a> for driver profiles and the resting-gap rule.</p><p>3 STRIPES · GOOD VIBES</p></footer>
     </main>
     <script type="module" src="app.js"></script>
   </body>
