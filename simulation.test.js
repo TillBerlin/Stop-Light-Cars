@@ -156,6 +156,14 @@ test('cars stopping in the striped zone on red leave about six metres', () => {
   }
 });
 
+test('default signal uses a 20-second green and a 23-second red phase', () => {
+  restartSimulation();
+  assert.equal(runHeadlessSimulation(1.05).phase, 'green');
+  assert.equal(runHeadlessSimulation(21.05).phase, 'orange');
+  assert.equal(runHeadlessSimulation(22.05).phase, 'red');
+  assert.equal(runHeadlessSimulation(45.05).phase, 'green');
+});
+
 test('restart clears diagnostics and restores the initial vehicle state', () => {
   const restarted = restartSimulation();
   assert.equal(restarted.elapsed, 0);
