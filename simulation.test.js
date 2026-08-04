@@ -77,7 +77,8 @@ function installFakeBrowser() {
 installFakeBrowser();
 let randomState = 0x5eed1234;
 Math.random = () => ((randomState = (1664525 * randomState + 1013904223) >>> 0) / 2 ** 32);
-const { restartSimulation, roadRenderMetrics, runHeadlessSimulation } = await import('./app.js');
+const { restartSimulation, roadRenderMetrics, runHeadlessSimulation, runStatisticsSimulation,
+  SIMULATION_DURATION_SECONDS } = await import('./app.js');
 const simulationResult = runHeadlessSimulation(60);
 
 function seededRandom(seed) {
@@ -162,6 +163,22 @@ test('default signal uses a 20-second green and a 23-second red phase', () => {
   assert.equal(runHeadlessSimulation(21.05).phase, 'orange');
   assert.equal(runHeadlessSimulation(22.05).phase, 'red');
   assert.equal(runHeadlessSimulation(45.05).phase, 'green');
+});
+
+test('batch statistics run the exact car simulation for five minutes', () => {
+  const result = runStatisticsSimulation({
+    greenPhase: 20, arrivalRate: 10, stripeCompliance: 100, stripeLength: 50,
+  }, 42);
+  assert.ok(result.throughput.every(count => count > 0));
+  assert.ok(result.waitingTime.every(wait => wait >= 0));
+});
+
+test('the visible simulation stops at five minutes and retains crossed counts', () => {
+  restartSimulation();
+  const result = runHeadlessSimulation(SIMULATION_DURATION_SECONDS + 60);
+  assert.equal(result.elapsed, SIMULATION_DURATION_SECONDS);
+  assert.equal(result.running, false);
+  assert.ok(result.lanes.every(lane => lane.crossed > 0));
 });
 
 test('restart clears diagnostics and restores the initial vehicle state', () => {

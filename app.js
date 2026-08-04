@@ -61,6 +61,7 @@ const STRIPE_ZONE_START = 0;
 const DISTANCE_MARKER_SPACING = 10;
 const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
 const RED_PHASE_OFFSET = 3;
+export const SIMULATION_DURATION_SECONDS = 5 * 60;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
 const settings = {
@@ -154,7 +155,7 @@ function renderStatisticsGraph() {
   const metricKey = el('graphMetric').value || 'throughput';
   const axis = graphAxes[axisKey];
   const metric = graphMetrics[metricKey];
-  const points = buildStatisticsSeries(axisKey, metricKey, statisticsSettings);
+  const points = buildStatisticsSeries(axisKey, metricKey, statisticsSettings, runStatisticsSimulation);
   const width = 760, height = 350, left = 66, right = 22, top = 22, bottom = 55;
   const maximum = Math.max(1, ...points.flatMap(point => point.lanes)) * 1.1;
   const xScale = value => left + (value - axis.min) / (axis.max - axis.min) * (width - left - right);
@@ -180,6 +181,7 @@ function scheduleGraphRender() {
 
 let nextCarId = 1;
 let vehicleProfiles = [];
+let createVisibleCars = true;
 const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: null, lanes: [], diagnostics: null };
 
 export function roadRenderMetrics(roadWidth, isMobile = false, overview = false) {
@@ -223,13 +225,13 @@ function vehicleProfile(index) {
   return vehicleProfiles[index];
 }
 
-function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
+function createCar(position, laneIndex, profileIndex, initialSpeed = 0, arrivalTime = 0) {
   const profile = vehicleProfile(profileIndex);
   const node = document.createElement('div');
   node.className = 'car';
   node.style.setProperty('--car-color', profile.color);
   node.innerHTML = '<span class="car-status">WAIT</span><div class="car-body"><i class="car-roof"></i><i class="car-window"></i></div><i class="wheel a"></i><i class="wheel b"></i>';
-  (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
+  if (createVisibleCars) (laneIndex === 0 ? el('laneTop') : el('laneBottom')).appendChild(node);
   return {
     id: nextCarId++, position, length: profile.length, speed: initialSpeed,
     startupTriggered: false, startupClock: 0, crossed: false, braking: false,
@@ -240,7 +242,7 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0) {
     behavior: initialSpeed >= STOPPED_SPEED ? BEHAVIOR.DRIVE : BEHAVIOR.WAIT,
     control: initialSpeed >= STOPPED_SPEED ? CONTROL.HOLD : CONTROL.HOLD,
     pendingControl: null, pendingBrake: null, reactionTime: REACTION_TIME,
-    acceleration: 0,
+    acceleration: 0, arrivalTime,
     movementSamples: [{ time: state.elapsed, position }],
     stoppedWithOpenGapSince: null,
     startup: randomBetween(settings.startupMin, settings.startupMax),
@@ -272,7 +274,7 @@ function fillInitialLane(laneIndex, gap) {
     car.queueRestingGap = restingGap;
     cars.push(car);
   }
-  return { cars, crossed: 0, index: laneIndex, nextProfile: INITIAL_CARS, pendingArrivals: [] };
+  return { cars, crossed: 0, totalWait: 0, index: laneIndex, nextProfile: INITIAL_CARS, pendingArrivals: [] };
 }
 
 function reset() {
@@ -564,7 +566,11 @@ function updateLane(lane, dt) {
 
     if (car.committedToCross && car.position <= STOP_POSITION) car.committedToCross = false;
 
-    if (!car.crossed && car.position < -car.length / 2) { car.crossed = true; lane.crossed++; }
+    if (!car.crossed && car.position < -car.length / 2) {
+      car.crossed = true;
+      lane.crossed++;
+      lane.totalWait += Math.max(0, state.elapsed - car.arrivalTime);
+    }
   }
 
   for (const car of lane.cars.filter(c => c.position < ROAD_MIN - 15)) car.node.remove();
@@ -620,7 +626,7 @@ function materializeArrivingCars() {
       REACTION_TIME,
       MOVING_TIME_HEADWAY,
     );
-    lane.cars.push(createCar(ROAD_MAX, lane.index, pending.profileIndex, initialSpeed));
+    lane.cars.push(createCar(ROAD_MAX, lane.index, pending.profileIndex, initialSpeed, pending.arrivalTime));
     lane.pendingArrivals.shift();
   }
 }
@@ -636,7 +642,7 @@ function tick(timestamp) {
 }
 
 function advanceSimulation(duration) {
-  let remaining = duration;
+  let remaining = Math.min(duration, SIMULATION_DURATION_SECONDS - state.elapsed);
   while (remaining > 0) {
     const dt = Math.min(remaining, .05);
     state.elapsed += dt; state.phaseRemaining -= dt;
@@ -658,11 +664,54 @@ function advanceSimulation(duration) {
     materializeArrivingCars();
     remaining -= dt;
   }
+  if (state.elapsed >= SIMULATION_DURATION_SECONDS - 1e-9) {
+    state.elapsed = SIMULATION_DURATION_SECONDS;
+    state.running = false;
+  }
 }
 
 export function runHeadlessSimulation(duration, step = .05) {
-  while (state.elapsed < duration - 1e-9) advanceSimulation(Math.min(step, duration - state.elapsed));
+  const endTime = Math.min(duration, SIMULATION_DURATION_SECONDS);
+  while (state.elapsed < endTime - 1e-9) advanceSimulation(Math.min(step, endTime - state.elapsed));
   return simulationSnapshot();
+}
+
+function seededRandom(seed) {
+  let value = seed >>> 0;
+  return () => ((value = (1664525 * value + 1013904223) >>> 0) / 2 ** 32);
+}
+
+// Batch statistics deliberately call the same initialization, signal, arrival,
+// driver-behavior and car-physics functions as the visible simulation. Globals
+// are swapped temporarily so calculating the graph cannot disturb the live run.
+export function runStatisticsSimulation(parameters, seed = 1) {
+  const savedState = { ...state };
+  const savedSettings = { ...settings };
+  const savedProfiles = vehicleProfiles;
+  const savedNextCarId = nextCarId;
+  const savedRandom = Math.random;
+  createVisibleCars = false;
+  Object.assign(settings, parameters);
+  Math.random = seededRandom(seed);
+  vehicleProfiles = [];
+  nextCarId = 1;
+  Object.assign(state, {
+    running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION,
+    elapsed: 0, arrivalClock: 0, lastFrame: null, diagnostics: freshDiagnostics(), lanes: [],
+  });
+  state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
+  runHeadlessSimulation(SIMULATION_DURATION_SECONDS);
+  const result = {
+    throughput: state.lanes.map(lane => lane.crossed),
+    waitingTime: state.lanes.map(lane => lane.crossed ? lane.totalWait / lane.crossed : 0),
+  };
+  Object.assign(state, savedState);
+  Object.assign(settings, savedSettings);
+  vehicleProfiles = savedProfiles;
+  nextCarId = savedNextCarId;
+  Math.random = savedRandom;
+  createVisibleCars = true;
+  return result;
 }
 
 function simulationSnapshot() {
@@ -789,7 +838,8 @@ function updateUI() {
   el('trafficLight').setAttribute('aria-label', `Traffic light is ${state.phase}`);
   el('phaseLabel').textContent = state.phase.toUpperCase();
   el('phaseCountdown').textContent = `${Math.max(0, state.phaseRemaining).toFixed(1)}s`;
-  el('runStatus').textContent = state.running ? 'RUNNING' : state.elapsed ? 'PAUSED' : 'READY';
+  const complete = state.elapsed >= SIMULATION_DURATION_SECONDS;
+  el('runStatus').textContent = complete ? 'COMPLETE' : state.running ? 'RUNNING' : state.elapsed ? 'PAUSED' : 'READY';
   document.querySelector('.sim-toolbar').classList.toggle('running', state.running);
   const mins = Math.floor(state.elapsed / 60).toString().padStart(2, '0');
   el('simTime').textContent = `${mins}:${(state.elapsed % 60).toFixed(1).padStart(4, '0')}`;
@@ -801,7 +851,7 @@ function updateUI() {
     counter.hidden = count === 0;
     counter.textContent = `+${count} waiting`;
   }
-  el('playBtn').disabled = state.running; el('stopBtn').disabled = !state.running;
+  el('playBtn').disabled = state.running || complete; el('stopBtn').disabled = !state.running;
   el('playBtn').querySelector('span:last-child').textContent = state.elapsed ? 'Resume' : 'Play';
 }
 

@@ -12,7 +12,7 @@ An interactive traffic simulation showing how two queues respond to one traffic 
 - Ordinary pedal adjustments have no artificial reaction delay, but acceleration is smoothed by a 2 m/s³ jerk limit. A closing gap that predicts contact within one second is treated as a surprising hazard: the driver maintains the existing acceleration during a 0.5-second reaction interval, so a car already slowing continues to slow, and then applies the calculated collision-avoidance deceleration.
 - Configurable green phases default to 20 seconds; each red phase lasts three seconds longer than the selected green phase. The phases repeat automatically with a one-second orange phase between them. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
 - New-car demand continues in each lane at the configured rate even when its entrance is blocked. Waiting arrivals appear in an upstream counter and enter as space becomes available, at a speed based on the leader and available stopping distance. The default is 10 cars per minute, and the arrival-rate slider ranges from 0 to 20 cars per minute in increments of 1.
-- Live crossed-car counts and phase countdown.
+- Live crossed-car counts and phase countdown. Each visible run stops automatically at five minutes and keeps its final crossed-car totals on screen.
 - Play, pause, and restart controls.
 - Responsive, accessible static application built with Vite.
 
@@ -55,3 +55,5 @@ The simulation uses a simplified one-dimensional car-following model:
 - Orange-light stopping decisions are made independently for every car, so a follower may stop even if the car ahead proceeds.
 
 These rules are intended to produce an understandable educational visualization, not a calibrated traffic-engineering prediction.
+
+The batch graph does not use a separate throughput approximation. Every graph point runs the same arrival, signal, queueing, driver-behavior, and car-physics code as the visible simulation ten times for five minutes, using seeded randomness so results are reproducible.
