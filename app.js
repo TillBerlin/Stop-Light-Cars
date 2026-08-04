@@ -288,7 +288,11 @@ function updateLane(lane, dt) {
         settings.stripeLength,
       )) car.queueRestingGap = settings.bottomGap;
     } else car.plannedStopPosition = null;
-    const standstillGap = expectsToStop ? car.queueRestingGap : settings.topGap;
+    // The striped standstill gap is a queue-formation rule. As soon as the
+    // signal turns green, use the ordinary safety gap even while this car and
+    // its leader are still marked as queued and have not begun moving yet.
+    const queueIsForming = state.phase === 'red' && expectsToStop;
+    const standstillGap = queueIsForming ? car.queueRestingGap : settings.topGap;
     const enteringQueue = shouldEnterQueueMode(
       current.position,
       STOP_POSITION,
@@ -353,14 +357,13 @@ function updateLane(lane, dt) {
     let targetDistance = Infinity;
 
     if (ahead) {
-      const baseFollowingGap = expectsToStop ? standstillGap : settings.topGap;
       const preferredGap = preferredFollowingDistance(
         settings.topGap,
         current.speed,
         MOVING_TIME_HEADWAY,
       );
-      desiredGap = desiredFollowingDistance(preferredGap, standstillGap, expectsToStop);
-      const targetGap = expectsToStop ? standstillGap : settings.topGap;
+      desiredGap = desiredFollowingDistance(preferredGap, standstillGap, queueIsForming);
+      const targetGap = queueIsForming ? standstillGap : settings.topGap;
       targetDistance = gap - targetGap;
       if (ahead.speed < STOPPED_SPEED && gap <= car.clearing) speedLimit = CREEP_SPEED;
     }
@@ -454,7 +457,7 @@ function updateLane(lane, dt) {
         ahead.position,
         car.length,
         aheadCar.length,
-        expectsToStop ? standstillGap : 0,
+        queueIsForming ? standstillGap : 0,
       );
       if (nextPosition < minimumPosition) {
         nextPosition = minimumPosition;

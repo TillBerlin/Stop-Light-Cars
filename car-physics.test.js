@@ -225,10 +225,15 @@ test('limits an arriving car to a speed that preserves its moving headway', () =
   assert.ok(Math.abs(speed - 10) < .001);
 });
 
-test('uses the queue gap only while the signal requires the car to stop', () => {
+test('uses the six-metre queue gap while a queue is forming on red', () => {
   assert.equal(desiredFollowingDistance(2, 6, false), 2);
   assert.equal(desiredFollowingDistance(2, 6, true), 6);
   assert.equal(desiredFollowingDistance(8, 6, true), 8);
+});
+
+test('a standing car uses only its safety distance while the queue dissolves on green', () => {
+  const safetyDistanceAtRest = 2;
+  assert.equal(desiredFollowingDistance(safetyDistanceAtRest, 6, false), 2);
 });
 
 test('projects a braking leader through the driver reaction time', () => {

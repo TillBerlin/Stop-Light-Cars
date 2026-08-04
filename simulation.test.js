@@ -80,6 +80,11 @@ Math.random = () => ((randomState = (1664525 * randomState + 1013904223) >>> 0) 
 const { restartSimulation, roadRenderMetrics, runHeadlessSimulation } = await import('./app.js');
 const simulationResult = runHeadlessSimulation(60);
 
+function seededRandom(seed) {
+  let state = seed;
+  return () => ((state = (1664525 * state + 1013904223) >>> 0) / 2 ** 32);
+}
+
 test('waits for a measurable road before calculating vehicle positions', () => {
   assert.equal(roadRenderMetrics(0), null);
   assert.equal(roadRenderMetrics(Number.NaN), null);
@@ -117,6 +122,22 @@ test('cars do not repeat startup during the first green wave', () => {
   for (const [carId, entries] of entriesByCar) {
     assert.equal(entries.length, 1,
       `car ${carId} entered startup ${entries.length} times: ${JSON.stringify(simulationResult.diagnostics.behaviorTransitions.filter(transition => transition.carId === carId && transition.time <= 13))}`);
+  }
+});
+
+test('cars do not repeat startup during the first green wave across several seeds', () => {
+  for (const seed of [1, 42, 0x5eed1234, 0xdeadbeef, 0xffffffff]) {
+    Math.random = seededRandom(seed);
+    restartSimulation();
+    const result = runHeadlessSimulation(13);
+    const startupEntries = result.diagnostics.behaviorTransitions.filter(transition => (
+      transition.to === 'STARTUP'
+    ));
+    const entriesByCar = Map.groupBy(startupEntries, transition => transition.carId);
+    for (const [carId, entries] of entriesByCar) {
+      assert.equal(entries.length, 1,
+        `seed ${seed}: car ${carId} entered startup ${entries.length} times: ${JSON.stringify(result.diagnostics.behaviorTransitions.filter(transition => transition.carId === carId))}`);
+    }
   }
 });
 
