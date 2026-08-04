@@ -58,6 +58,10 @@ test('limits ordinary acceleration changes by jerk', () => {
   assert.equal(limitAccelerationByJerk(.3, .35, 2, .05), .35);
 });
 
+test('allows emergency braking to build at the brake-system jerk limit', () => {
+  assert.equal(limitAccelerationByJerk(0, -4, 10, .05), -.5);
+});
+
 test('calculates the braking needed to remove closing speed before impact', () => {
   assert.equal(requiredCollisionAvoidanceAcceleration(4, 6, 4), -.5);
   assert.equal(requiredCollisionAvoidanceAcceleration(4, 4, 6), 0);

@@ -78,7 +78,8 @@ installFakeBrowser();
 let randomState = 0x5eed1234;
 Math.random = () => ((randomState = (1664525 * randomState + 1013904223) >>> 0) / 2 ** 32);
 const { restartSimulation, roadRenderMetrics, runHeadlessSimulation, runStatisticsSimulation,
-  SIMULATION_DURATION_SECONDS } = await import('./app.js');
+  jerkLimitFor, SIMULATION_DURATION_SECONDS } = await import('./app.js');
+const { BEHAVIOR, limitAccelerationByJerk } = await import('./driver-behavior.js');
 const simulationResult = runHeadlessSimulation(60);
 
 function seededRandom(seed) {
@@ -101,6 +102,28 @@ test('default 60-second simulation keeps safety interventions within its regress
     `observed ${simulationResult.diagnostics.crashes} collision corrections`);
   assert.ok(simulationResult.diagnostics.emergencyBrakes <= 10,
     `observed ${simulationResult.diagnostics.emergencyBrakes} emergency-brake events`);
+});
+
+test('emergency braking reaches its requested deceleration within 0.3 seconds', () => {
+  const step = .05;
+  const requestedAcceleration = -2.5;
+  let acceleration = 0;
+  let elapsed = 0;
+
+  while (acceleration !== requestedAcceleration && elapsed < .3) {
+    acceleration = limitAccelerationByJerk(
+      acceleration,
+      requestedAcceleration,
+      jerkLimitFor(BEHAVIOR.EMERGENCY_BRAKE, requestedAcceleration, acceleration),
+      step,
+    );
+    elapsed += step;
+  }
+
+  assert.equal(acceleration, requestedAcceleration);
+  assert.ok(elapsed <= .3, `emergency braking took ${elapsed.toFixed(2)} seconds`);
+  assert.equal(jerkLimitFor(BEHAVIOR.EMERGENCY_BRAKE, -1, -2), 2,
+    'releasing an emergency brake should use ordinary pedal smoothing');
 });
 
 test('no car remains stopped for three seconds behind a gap larger than ten metres', () => {
