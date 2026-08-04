@@ -51,7 +51,7 @@
 
         <div class="metrics">
           <article><div class="metric-head"><span class="lane-badge top">A</span>TOP LANE</div><strong id="topCrossed">0</strong><span>cars crossed</span><small>Resting gap <b id="topGapMetric">2.0m</b></small></article>
-          <article><div class="metric-head"><span class="lane-badge bottom">B</span>BOTTOM LANE</div><strong id="bottomCrossed">0</strong><span>cars crossed</span><small>Compliant drivers target <b id="bottomGapMetric">3 stripes · 6.0m</b></small></article>
+          <article><div class="metric-head"><span class="lane-badge bottom">B</span>BOTTOM LANE</div><strong id="bottomCrossed">0</strong><span>cars crossed</span><small>Compliant drivers target <b id="bottomGapMetric">6.0m</b></small></article>
         </div>
       </section>
 
@@ -84,10 +84,67 @@
           <p>This is a simple car-following model. Each car watches the light, the car ahead and the space between them.</p>
         </div>
         <div class="point-grid model-points">
-          <article><span>01</span><h3>Joining the queue</h3><p>Cars slow down for a red light and stop behind the car ahead. Lane A uses a normal two-metre gap. In the striped zone, compliant Lane B drivers aim for a six-metre gap.</p></article>
+          <article><span>01</span><h3>Joining the queue</h3><p>Cars slow down for a red light and stop behind the car ahead. Lane A uses a normal two-metre gap. In the striped zone, compliant Lane B drivers aim for the selected intended distance (4-8 metres, default six).</p></article>
           <article><span>02</span><h3>Starting on green</h3><p>The first car reacts to the green light. Other drivers start after the car ahead moves or when there is already enough clear space. A larger gap can therefore let several drivers react together.</p></article>
           <article><span>03</span><h3>Following safely</h3><p>Moving cars adjust their speed to keep a safe distance. They accelerate smoothly, brake as the gap closes and use stronger braking if a collision becomes likely.</p></article>
           <article><span>04</span><h3>Signals and new cars</h3><p>Drivers stop for red and decide whether it is safe to stop on orange. New cars keep arriving at the chosen rate, and wait off-screen if the road entrance is full.</p></article>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Key terms</p>
+          <h3 class="model-subhead">The four numbers that describe a driver</h3>
+          <dl class="term-list">
+            <div>
+              <dt>Start-up time <span>seconds</span></dt>
+              <dd>How long a stopped driver takes to get going once it is their turn. The countdown begins when the light is green and the car ahead has started moving, or when there is already enough clear space. The car stays still until it finishes. This is the delay that passes down a queue one car at a time, and the delay the larger gap is meant to avoid.</dd>
+            </div>
+            <div>
+              <dt>Headway <span>seconds</span></dt>
+              <dd>The time gap a moving driver wants to keep to the car ahead — roughly "how many seconds behind". It is a time, not a distance, so the gap grows with speed: at 50 km/h a 1.5-second headway is about 21 metres. It shrinks to nothing at a standstill, where the resting gap takes over instead.</dd>
+            </div>
+            <div>
+              <dt>Jerk <span>m/s³</span></dt>
+              <dd>How fast the acceleration itself is allowed to change — in plain terms, how briskly a driver moves the pedal. Low jerk is a smooth, gradual squeeze; high jerk is a quick jab. It does not change how hard a car can eventually accelerate or brake, only how quickly it gets there, which is what makes a start feel gentle or sharp.</dd>
+            </div>
+            <div>
+              <dt>Acceleration and braking <span>m/s²</span></dt>
+              <dd>The strongest pull-away and the firmest comfortable stop a driver will normally choose. These are everyday limits, not the limits of the car. When a collision looks likely the driver abandons them and brakes as hard as the situation requires.</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Driver profiles</p>
+          <h3 class="model-subhead">What aggressiveness actually changes</h3>
+          <p class="model-lede">"Aggressiveness" is not a single dial inside the model. Each level is a bundle of the four values above, moved together. A more aggressive driver starts sooner, follows closer, works the pedals harder and accepts firmer braking. The <b>Driver mix</b> slider sets the lowest and highest level present; every car draws its own level when it appears and keeps that character for its whole run.</p>
+          <div class="profile-table-wrap">
+            <table class="profile-table">
+              <caption class="sr-only">Driver profile values by aggressiveness level</caption>
+              <thead>
+                <tr><th scope="col">Level</th><th scope="col">Start-up<span>s</span></th><th scope="col">Headway<span>s</span></th><th scope="col">Jerk<span>m/s³</span></th><th scope="col">Max accel.<span>m/s²</span></th><th scope="col">Braking<span>m/s²</span></th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row"><b>1</b> Very cautious</th><td>2.40</td><td>2.1</td><td>1.0</td><td>1.2</td><td>2.00</td></tr>
+                <tr><th scope="row"><b>2</b> Cautious</th><td>2.10</td><td>1.8</td><td>1.5</td><td>1.6</td><td>2.25</td></tr>
+                <tr class="profile-default"><th scope="row"><b>3</b> Normal</th><td>1.85</td><td>1.5</td><td>2.0</td><td>2.0</td><td>2.50</td></tr>
+                <tr><th scope="row"><b>4</b> Assertive</th><td>1.50</td><td>1.2</td><td>3.0</td><td>2.5</td><td>2.75</td></tr>
+                <tr><th scope="row"><b>5</b> Aggressive</th><td>1.20</td><td>0.9</td><td>4.0</td><td>3.0</td><td>3.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="model-footnote">Level 3 is the default population. Each car's start-up time is drawn within 0.15 s of its profile value, so even identical drivers do not start in lockstep. <b>Emergency braking is deliberately not a personality setting:</b> once a collision is predicted, every driver builds brake pressure at the same 10 m/s³ vehicle limit, because that is a property of the car rather than the person.</p>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Gaps at a standstill</p>
+          <h3 class="model-subhead">Where the idea lives</h3>
+          <p class="model-lede">Headway describes moving traffic and fades to zero at rest, so a separate <b>resting gap</b> governs a stopped queue. Lane A always uses 2 metres. In the striped zone, compliant Lane B drivers instead target the <b>Lane B intended distance</b> (4–8 metres, 6 by default) — the whole point of the experiment. A driver commits to that larger gap while still braking, as soon as it can predict its place in a queue forming on red, and holds it while it creeps and waits. The moment the light turns green the queue is dissolving rather than forming, so even a car still standing reverts to the ordinary 2-metre gap. Outside the striped zone, and for non-compliant drivers, Lane B behaves exactly like Lane A.</p>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">The simulation itself</p>
+          <h3 class="model-subhead">How the numbers are produced</h3>
+          <p class="model-lede">The model advances in <b>50-millisecond steps</b>, recalculating arrivals, the signal, queueing, driver behaviour and car physics on every step. Vehicles are <b>3.8 to 5.2 metres</b> long, drawn when each car is created, so a queue of ten cars is not a fixed length. The batch statistics are not a faster approximation: every point on the graph runs this same timestep with seeded randomness, which is why results are reproducible but a sweep takes a moment to compute.</p>
         </div>
       </section>
 
@@ -117,7 +174,7 @@
         </div>
         <div class="graph-layout">
           <div class="graph-main">
-            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="arrivalRate">Arrival rate</option><option value="aggressiveness">Driver aggressiveness</option></select></label><label>Runs per point<select id="graphRuns"><option>3</option><option>5</option><option>10</option></select></label><label>Run length<select id="graphDuration"><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label></div>
+            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="bottomGap">Lane B intended distance</option><option value="arrivalRate">Arrival rate</option><option value="speedLimit">Speed limit</option><option value="aggressiveness">Driver aggressiveness</option></select></label><label>Runs per point<select id="graphRuns"><option>3</option><option>5</option><option>10</option></select></label><label>Run length<select id="graphDuration"><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label></div>
             <div class="statistics-run"><button id="runStatisticsBtn" class="primary-btn" type="button">Run statistics</button><p id="statisticsStatus" role="status">Choose settings, then run statistics to draw the graph.</p></div>
             <div class="chart-wrap" id="statisticsChart" aria-live="polite"><div class="chart-placeholder">The graph will appear after you run statistics.</div></div>
             <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span><span><i class="relative"></i>Relative advantage (B/A)</span></div>
@@ -126,7 +183,72 @@
         </div>
       </section>
 
-      <footer><p><b>MODEL NOTE</b> Cars are 3.8–5.2m long. In the selected striped zone before the light, compliant Lane B drivers stop three 2m stripes behind the car ahead. Outside it, all drivers use Lane A's normal gap.</p><p>3 STRIPES · GOOD VIBES</p></footer>
+      <section class="story-card findings-card" aria-labelledby="findingsTitle">
+        <p class="eyebrow">Findings</p>
+        <div class="story-heading">
+          <h2 id="findingsTitle">What the simulation shows at rush hour</h2>
+          <p>Seven sweeps against one fixed scenario, chosen to resemble a busy street rather than an ideal one. Each chart plots how many cars Lane B moves for every car Lane A moves, so 1.00 means no advantage.</p>
+        </div>
+        <p class="findings-status"><b>The scenario.</b> Every figure below uses the same defaults, which are also the settings the page opens with: <b>20s green</b> phase, <b>15 cars per minute</b> per lane, <b>70% compliance</b>, <b>50m striped zone</b>, <b>6m intended distance</b>, <b>50 km/h</b> speed limit, and a mixed driver population spanning <b>cautious to assertive</b> (levels 2–4). Each point averages <b>20 seeded runs of five minutes</b>. Only the parameter named in a finding varies; everything else stays fixed. The arrival rate is deliberately high — this describes rush-hour demand, where a queue does not simply clear itself every cycle, and results at quieter times will differ.</p>
+        <ol class="findings-list">
+          <li class="finding-hero">
+            <div class="finding-body">
+              <h3>Lane B moves about 30% more cars</h3>
+              <p class="finding-stat"><b>+30.6%</b><span>41.0 cars in Lane A against 53.5 in Lane B, averaged over 40 runs of five minutes</span></p>
+              <p>At realistic rush-hour settings — with only 70% of drivers taking part and a mixed population — the larger resting gap moves roughly thirty percent more traffic through the same signal. Average waiting time falls alongside it, from 96.2 seconds to 74.1 seconds, a reduction of 23%. The six findings that follow describe what changes that number.</p>
+            </div>
+          </li>
+          <li>
+            <div class="finding-body">
+              <h3>Compliance pays back steadily, with no threshold to clear</h3>
+              <p class="finding-stat"><b>+13.2% at 30% compliance</b><span>rising smoothly to +29.9% at 70% and +35.8% if everyone takes part</span></p>
+              <p>The gain grows in proportion to the share of drivers who adopt the larger gap, at roughly four points of advantage for every ten points of compliance. There is no minimum participation below which the idea stops working and no point at which it saturates. This matters most for whether the idea is worth trying at all: a scheme that only paid off once nearly everyone complied would be far harder to justify than one that returns something from the first participants onward.</p>
+            </div>
+            <figure class="finding-chart"><svg viewBox="0 0 400 176" role="img" aria-label="Lane B over Lane A throughput ratio against Compliance (%) · default 70"><line class="fc-grid" x1="46" y1="138.0" x2="386" y2="138.0"/><text class="fc-lab" x="39" y="141.5" text-anchor="end">0.95</text><line class="fc-grid" x1="46" y1="110.4" x2="386" y2="110.4"/><text class="fc-lab" x="39" y="113.9" text-anchor="end">1.05</text><line class="fc-grid" x1="46" y1="82.9" x2="386" y2="82.9"/><text class="fc-lab" x="39" y="86.4" text-anchor="end">1.15</text><line class="fc-grid" x1="46" y1="55.3" x2="386" y2="55.3"/><text class="fc-lab" x="39" y="58.8" text-anchor="end">1.25</text><line class="fc-grid" x1="46" y1="27.8" x2="386" y2="27.8"/><text class="fc-lab" x="39" y="31.3" text-anchor="end">1.35</text><line class="fc-unity" x1="46" y1="124.2" x2="386" y2="124.2"/><line class="fc-marker" x1="284.0" y1="14" x2="284.0" y2="138"/><line class="fc-axis" x1="46" y1="14" x2="46" y2="138"/><line class="fc-axis" x1="46" y1="138" x2="386" y2="138"/><polyline class="fc-line" points="46.0,126.2 80.0,107.8 114.0,93.2 148.0,87.9 182.0,72.5 216.0,61.8 250.0,49.7 284.0,41.7 318.0,35.2 352.0,27.6 386.0,25.5"/><circle class="fc-dot" cx="46.0" cy="126.2" r="2.6"/><circle class="fc-dot" cx="80.0" cy="107.8" r="2.6"/><circle class="fc-dot" cx="114.0" cy="93.2" r="2.6"/><circle class="fc-dot" cx="148.0" cy="87.9" r="2.6"/><circle class="fc-dot" cx="182.0" cy="72.5" r="2.6"/><circle class="fc-dot" cx="216.0" cy="61.8" r="2.6"/><circle class="fc-dot" cx="250.0" cy="49.7" r="2.6"/><circle class="fc-dot" cx="284.0" cy="41.7" r="2.6"/><circle class="fc-dot" cx="318.0" cy="35.2" r="2.6"/><circle class="fc-dot" cx="352.0" cy="27.6" r="2.6"/><circle class="fc-dot" cx="386.0" cy="25.5" r="2.6"/><text class="fc-lab" x="46.0" y="153" text-anchor="middle">0%</text><text class="fc-lab" x="114.0" y="153" text-anchor="middle">20%</text><text class="fc-lab" x="182.0" y="153" text-anchor="middle">40%</text><text class="fc-lab" x="250.0" y="153" text-anchor="middle">60%</text><text class="fc-lab" x="318.0" y="153" text-anchor="middle">80%</text><text class="fc-lab" x="386.0" y="153" text-anchor="middle">100%</text><text class="fc-title" x="216" y="170" text-anchor="middle">Compliance (%) · default 70</text></svg><figcaption>Compliance swept 0–100%. All other parameters at the scenario defaults.</figcaption></figure>
+          </li>
+          <li>
+            <div class="finding-body">
+              <h3>The striped zone needs about 40 metres and gains nothing after 50</h3>
+              <p class="finding-stat"><b>+22.8% at 30m → +29.2% at 40m</b><span>essentially flat from 50m onward; a 10m zone achieves nothing at all</span></p>
+              <p>A short zone is useless because it does not reach far enough back to hold the cars that matter. The curve climbs steeply between 20 and 40 metres, is within noise of its maximum by 50, and stays there however much further the markings extend. At a six-metre intended distance, 40 metres is roughly the first four cars in the queue, which supports the natural reading: what the idea buys is getting the <em>front</em> of the queue away quickly, and the delay those cars avoid is inherited by everyone behind them. Paint beyond that is spent on cars that were never the bottleneck.</p>
+            </div>
+            <figure class="finding-chart"><svg viewBox="0 0 400 176" role="img" aria-label="Lane B over Lane A throughput ratio against Striped zone length (m) · default 50"><line class="fc-grid" x1="46" y1="138.0" x2="386" y2="138.0"/><text class="fc-lab" x="39" y="141.5" text-anchor="end">1.00</text><line class="fc-grid" x1="46" y1="102.6" x2="386" y2="102.6"/><text class="fc-lab" x="39" y="106.1" text-anchor="end">1.10</text><line class="fc-grid" x1="46" y1="67.1" x2="386" y2="67.1"/><text class="fc-lab" x="39" y="70.6" text-anchor="end">1.20</text><line class="fc-grid" x1="46" y1="31.7" x2="386" y2="31.7"/><text class="fc-lab" x="39" y="35.2" text-anchor="end">1.30</text><line class="fc-unity" x1="46" y1="138.0" x2="386" y2="138.0"/><line class="fc-marker" x1="197.1" y1="14" x2="197.1" y2="138"/><line class="fc-axis" x1="46" y1="14" x2="46" y2="138"/><line class="fc-axis" x1="46" y1="138" x2="386" y2="138"/><polyline class="fc-line" points="46.0,137.6 83.8,88.4 121.6,57.3 159.3,34.4 197.1,31.9 234.9,30.9 272.7,29.2 310.4,24.8 348.2,28.3 386.0,32.1"/><circle class="fc-dot" cx="46.0" cy="137.6" r="2.6"/><circle class="fc-dot" cx="83.8" cy="88.4" r="2.6"/><circle class="fc-dot" cx="121.6" cy="57.3" r="2.6"/><circle class="fc-dot" cx="159.3" cy="34.4" r="2.6"/><circle class="fc-dot" cx="197.1" cy="31.9" r="2.6"/><circle class="fc-dot" cx="234.9" cy="30.9" r="2.6"/><circle class="fc-dot" cx="272.7" cy="29.2" r="2.6"/><circle class="fc-dot" cx="310.4" cy="24.8" r="2.6"/><circle class="fc-dot" cx="348.2" cy="28.3" r="2.6"/><circle class="fc-dot" cx="386.0" cy="32.1" r="2.6"/><text class="fc-lab" x="46.0" y="153" text-anchor="middle">10m</text><text class="fc-lab" x="121.6" y="153" text-anchor="middle">30m</text><text class="fc-lab" x="197.1" y="153" text-anchor="middle">50m</text><text class="fc-lab" x="272.7" y="153" text-anchor="middle">70m</text><text class="fc-lab" x="348.2" y="153" text-anchor="middle">90m</text><text class="fc-lab" x="386.0" y="153" text-anchor="middle">100m</text><text class="fc-title" x="216" y="170" text-anchor="middle">Striped zone length (m) · default 50</text></svg><figcaption>Striped zone length swept 10–100m. All other parameters at the scenario defaults.</figcaption></figure>
+          </li>
+          <li>
+            <div class="finding-body">
+              <h3>Green phases stop mattering after about twelve seconds</h3>
+              <p class="finding-stat"><b>+15.3% at 5s → +29.6% at 12s</b><span>then flat within noise across the whole range to 30s, ending at +27.3%</span></p>
+              <p>Only very short green phases suppress the advantage, because almost nobody gets moving before the light changes regardless of how they are spaced. Once the phase is long enough for the front of the queue to clear — around twelve seconds here — the benefit reaches its full size and stays there. Longer phases neither add to it nor erode it. An earlier reading of a sweeter spot near fifteen seconds did not survive the move to a mixed driver population; on this scenario the curve is simply flat once it has risen.</p>
+            </div>
+            <figure class="finding-chart"><svg viewBox="0 0 400 176" role="img" aria-label="Lane B over Lane A throughput ratio against Green phase (s) · default 20"><line class="fc-grid" x1="46" y1="138.0" x2="386" y2="138.0"/><text class="fc-lab" x="39" y="141.5" text-anchor="end">1.00</text><line class="fc-grid" x1="46" y1="96.7" x2="386" y2="96.7"/><text class="fc-lab" x="39" y="100.2" text-anchor="end">1.10</text><line class="fc-grid" x1="46" y1="55.3" x2="386" y2="55.3"/><text class="fc-lab" x="39" y="58.8" text-anchor="end">1.20</text><line class="fc-grid" x1="46" y1="14.0" x2="386" y2="14.0"/><text class="fc-lab" x="39" y="17.5" text-anchor="end">1.30</text><line class="fc-unity" x1="46" y1="138.0" x2="386" y2="138.0"/><line class="fc-marker" x1="250.0" y1="14" x2="250.0" y2="138"/><line class="fc-axis" x1="46" y1="14" x2="46" y2="138"/><line class="fc-axis" x1="46" y1="138" x2="386" y2="138"/><polyline class="fc-line" points="46.0,75.0 86.8,53.1 114.0,37.3 141.2,15.6 182.0,24.6 222.8,14.1 250.0,14.3 277.2,16.8 318.0,23.0 358.8,15.7 386.0,25.4"/><circle class="fc-dot" cx="46.0" cy="75.0" r="2.6"/><circle class="fc-dot" cx="86.8" cy="53.1" r="2.6"/><circle class="fc-dot" cx="114.0" cy="37.3" r="2.6"/><circle class="fc-dot" cx="141.2" cy="15.6" r="2.6"/><circle class="fc-dot" cx="182.0" cy="24.6" r="2.6"/><circle class="fc-dot" cx="222.8" cy="14.1" r="2.6"/><circle class="fc-dot" cx="250.0" cy="14.3" r="2.6"/><circle class="fc-dot" cx="277.2" cy="16.8" r="2.6"/><circle class="fc-dot" cx="318.0" cy="23.0" r="2.6"/><circle class="fc-dot" cx="358.8" cy="15.7" r="2.6"/><circle class="fc-dot" cx="386.0" cy="25.4" r="2.6"/><text class="fc-lab" x="46.0" y="153" text-anchor="middle">5s</text><text class="fc-lab" x="114.0" y="153" text-anchor="middle">10s</text><text class="fc-lab" x="182.0" y="153" text-anchor="middle">15s</text><text class="fc-lab" x="250.0" y="153" text-anchor="middle">20s</text><text class="fc-lab" x="318.0" y="153" text-anchor="middle">25s</text><text class="fc-lab" x="386.0" y="153" text-anchor="middle">30s</text><text class="fc-title" x="216" y="170" text-anchor="middle">Green phase (s) · default 20</text></svg><figcaption>Green phase swept 5–30s. The red phase is always the green phase plus three seconds.</figcaption></figure>
+          </li>
+          <li>
+            <div class="finding-body">
+              <h3>Higher speed limits help, up to about 60 km/h</h3>
+              <p class="finding-stat"><b>+16.2% at 20 km/h → +33.3% at 60 km/h</b><span>no further change between 60 and 100 km/h</span></p>
+              <p>On a slow street the advantage is roughly half what it is on a faster one. A simultaneous start only converts into throughput if cars can then accelerate away and leave the junction; at 20 km/h they cannot use the room they were given, so much of the benefit is stranded. Above 60 km/h nothing more is gained, because by then the limiting factor is how quickly drivers get moving rather than how fast they are eventually allowed to travel. At 50 km/h, a normal limit on larger Dutch through-roads, the scenario sits just below the plateau.</p>
+            </div>
+            <figure class="finding-chart"><svg viewBox="0 0 400 176" role="img" aria-label="Lane B over Lane A throughput ratio against Speed limit (km/h) · default 50"><line class="fc-grid" x1="46" y1="138.0" x2="386" y2="138.0"/><text class="fc-lab" x="39" y="141.5" text-anchor="end">1.00</text><line class="fc-grid" x1="46" y1="102.6" x2="386" y2="102.6"/><text class="fc-lab" x="39" y="106.1" text-anchor="end">1.10</text><line class="fc-grid" x1="46" y1="67.1" x2="386" y2="67.1"/><text class="fc-lab" x="39" y="70.6" text-anchor="end">1.20</text><line class="fc-grid" x1="46" y1="31.7" x2="386" y2="31.7"/><text class="fc-lab" x="39" y="35.2" text-anchor="end">1.30</text><line class="fc-unity" x1="46" y1="138.0" x2="386" y2="138.0"/><line class="fc-marker" x1="173.5" y1="14" x2="173.5" y2="138"/><line class="fc-axis" x1="46" y1="14" x2="46" y2="138"/><line class="fc-axis" x1="46" y1="138" x2="386" y2="138"/><polyline class="fc-line" points="46.0,80.8 88.5,65.8 131.0,41.9 173.5,31.9 216.0,20.0 258.5,20.5 301.0,20.0 343.5,19.6 386.0,19.5"/><circle class="fc-dot" cx="46.0" cy="80.8" r="2.6"/><circle class="fc-dot" cx="88.5" cy="65.8" r="2.6"/><circle class="fc-dot" cx="131.0" cy="41.9" r="2.6"/><circle class="fc-dot" cx="173.5" cy="31.9" r="2.6"/><circle class="fc-dot" cx="216.0" cy="20.0" r="2.6"/><circle class="fc-dot" cx="258.5" cy="20.5" r="2.6"/><circle class="fc-dot" cx="301.0" cy="20.0" r="2.6"/><circle class="fc-dot" cx="343.5" cy="19.6" r="2.6"/><circle class="fc-dot" cx="386.0" cy="19.5" r="2.6"/><text class="fc-lab" x="46.0" y="153" text-anchor="middle">20</text><text class="fc-lab" x="131.0" y="153" text-anchor="middle">40</text><text class="fc-lab" x="216.0" y="153" text-anchor="middle">60</text><text class="fc-lab" x="301.0" y="153" text-anchor="middle">80</text><text class="fc-lab" x="386.0" y="153" text-anchor="middle">100</text><text class="fc-title" x="216" y="170" text-anchor="middle">Speed limit (km/h) · default 50</text></svg><figcaption>Speed limit swept 20–100 km/h. All other parameters at the scenario defaults.</figcaption></figure>
+          </li>
+          <li>
+            <div class="finding-body">
+              <h3>Driver style barely changes the advantage, but transforms the traffic</h3>
+              <p class="finding-stat"><b>+23.7% to +33.6%</b><span>across every uniform population from very cautious to aggressive, with no clear trend</span></p>
+              <p>This is the most useful negative result here. Sweeping the whole population from very cautious to aggressive moves the relative advantage only within a narrow band, and not in a consistent direction. The <em>absolute</em> numbers meanwhile change enormously: an all-cautious Lane A moves 28 cars where an all-aggressive one moves 63. So driver temperament dominates how much traffic a junction carries, while barely affecting how much the larger gap adds on top. The idea does not depend on a particular kind of driver, which makes it more portable between streets than a result tied to one temperament would be.</p>
+            </div>
+            <figure class="finding-chart"><svg viewBox="0 0 400 176" role="img" aria-label="Lane B over Lane A throughput ratio against Uniform driver level (1 cautious → 5 aggressive)"><line class="fc-grid" x1="46" y1="138.0" x2="386" y2="138.0"/><text class="fc-lab" x="39" y="141.5" text-anchor="end">1.00</text><line class="fc-grid" x1="46" y1="102.6" x2="386" y2="102.6"/><text class="fc-lab" x="39" y="106.1" text-anchor="end">1.10</text><line class="fc-grid" x1="46" y1="67.1" x2="386" y2="67.1"/><text class="fc-lab" x="39" y="70.6" text-anchor="end">1.20</text><line class="fc-grid" x1="46" y1="31.7" x2="386" y2="31.7"/><text class="fc-lab" x="39" y="35.2" text-anchor="end">1.30</text><line class="fc-unity" x1="46" y1="138.0" x2="386" y2="138.0"/><line class="fc-axis" x1="46" y1="14" x2="46" y2="138"/><line class="fc-axis" x1="46" y1="138" x2="386" y2="138"/><polyline class="fc-line" points="46.0,19.1 131.0,32.7 216.0,40.1 301.0,21.5 386.0,54.2"/><circle class="fc-dot" cx="46.0" cy="19.1" r="2.6"/><circle class="fc-dot" cx="131.0" cy="32.7" r="2.6"/><circle class="fc-dot" cx="216.0" cy="40.1" r="2.6"/><circle class="fc-dot" cx="301.0" cy="21.5" r="2.6"/><circle class="fc-dot" cx="386.0" cy="54.2" r="2.6"/><text class="fc-lab" x="46.0" y="153" text-anchor="middle">1</text><text class="fc-lab" x="131.0" y="153" text-anchor="middle">2</text><text class="fc-lab" x="216.0" y="153" text-anchor="middle">3</text><text class="fc-lab" x="301.0" y="153" text-anchor="middle">4</text><text class="fc-lab" x="386.0" y="153" text-anchor="middle">5</text><text class="fc-title" x="216" y="170" text-anchor="middle">Uniform driver level (1 cautious → 5 aggressive)</text></svg><figcaption>Uniform populations at each level, 1 very cautious to 5 aggressive. The scenario default is instead a mix of levels 2–4.</figcaption></figure>
+          </li>
+          <li>
+            <div class="finding-body">
+              <h3>Six metres is the point past which extra distance is wasted</h3>
+              <p class="finding-stat"><b>+22.5% at 4m → +29.9% at 6m</b><span>flat thereafter: +30.4% at 8m is indistinguishable from 6m</span></p>
+              <p>Below six metres the gap is too small to let a second and third driver react at the same time, and the advantage falls away measurably. Above it, extra space buys nothing. The explanation the numbers support is that the gap has one job — letting several drivers pull away together — and once that is achieved the queue settles into an ordinary slow-moving line at its normal following distance, absorbing whatever spacing it started from. This is convenient for street design, since it means the marking needs to be big enough rather than precisely calibrated, and no room is wasted by overshooting.</p>
+            </div>
+            <figure class="finding-chart"><svg viewBox="0 0 400 176" role="img" aria-label="Lane B over Lane A throughput ratio against Lane B intended distance (m) · default 6"><line class="fc-grid" x1="46" y1="138.0" x2="386" y2="138.0"/><text class="fc-lab" x="39" y="141.5" text-anchor="end">1.00</text><line class="fc-grid" x1="46" y1="102.6" x2="386" y2="102.6"/><text class="fc-lab" x="39" y="106.1" text-anchor="end">1.10</text><line class="fc-grid" x1="46" y1="67.1" x2="386" y2="67.1"/><text class="fc-lab" x="39" y="70.6" text-anchor="end">1.20</text><line class="fc-grid" x1="46" y1="31.7" x2="386" y2="31.7"/><text class="fc-lab" x="39" y="35.2" text-anchor="end">1.30</text><line class="fc-unity" x1="46" y1="138.0" x2="386" y2="138.0"/><line class="fc-marker" x1="216.0" y1="14" x2="216.0" y2="138"/><line class="fc-axis" x1="46" y1="14" x2="46" y2="138"/><line class="fc-axis" x1="46" y1="138" x2="386" y2="138"/><polyline class="fc-line" points="46.0,58.1 88.5,44.2 131.0,39.3 173.5,34.6 216.0,31.9 258.5,30.4 301.0,31.7 343.5,33.1 386.0,30.3"/><circle class="fc-dot" cx="46.0" cy="58.1" r="2.6"/><circle class="fc-dot" cx="88.5" cy="44.2" r="2.6"/><circle class="fc-dot" cx="131.0" cy="39.3" r="2.6"/><circle class="fc-dot" cx="173.5" cy="34.6" r="2.6"/><circle class="fc-dot" cx="216.0" cy="31.9" r="2.6"/><circle class="fc-dot" cx="258.5" cy="30.4" r="2.6"/><circle class="fc-dot" cx="301.0" cy="31.7" r="2.6"/><circle class="fc-dot" cx="343.5" cy="33.1" r="2.6"/><circle class="fc-dot" cx="386.0" cy="30.3" r="2.6"/><text class="fc-lab" x="46.0" y="153" text-anchor="middle">4m</text><text class="fc-lab" x="131.0" y="153" text-anchor="middle">5m</text><text class="fc-lab" x="216.0" y="153" text-anchor="middle">6m</text><text class="fc-lab" x="301.0" y="153" text-anchor="middle">7m</text><text class="fc-lab" x="386.0" y="153" text-anchor="middle">8m</text><text class="fc-title" x="216" y="170" text-anchor="middle">Lane B intended distance (m) · default 6</text></svg><figcaption>Intended distance swept 4–8m. All other parameters at the scenario defaults.</figcaption></figure>
+          </li>
+        </ol>
+        <p class="findings-caveat"><b>One caveat above all others.</b> These seven sweeps vary one parameter at a time around a single chosen scenario. The full parameter space is far larger than that, and the parameters interact: an earlier version of this page, built on an all-normal population at lower demand, produced a visibly different picture of how green phases behave. Other combinations will shift these numbers, and some may reverse a trend seen here. Read each finding as "this is what happens around this scenario", not as a general law, and treat the model itself as an argument for a careful real-world trial rather than a substitute for one.</p>
+      </section>
     </main>
     <script type="module" src="app.js"></script>
   </body>

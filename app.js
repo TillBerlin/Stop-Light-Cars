@@ -72,11 +72,14 @@ const RED_PHASE_OFFSET = 3;
 export const SIMULATION_DURATION_SECONDS = 5 * 60;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
+// Defaults describe a realistic rush-hour street rather than an idealised one:
+// mixed driver personalities, partial compliance, and demand high enough that
+// the queue does not simply clear itself every cycle.
 const settings = {
-  aggressivenessMin: 3, aggressivenessMax: 3,
+  aggressivenessMin: 2, aggressivenessMax: 4,
   clearingMin: 4, clearingMax: 4,
-  greenPhase: 20, arrivalRate: 10, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
-  stripeCompliance: 100, stripeLength: 50, simulationSpeed: 1,
+  greenPhase: 20, arrivalRate: 15, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
+  stripeCompliance: 70, stripeLength: 50, simulationSpeed: 1,
 };
 const controlDefinitions = [
   { key: 'aggressiveness', label: 'Driver mix', min: 1, max: 5, step: 1, unit: '', range: true, note: 'Level is fixed when each car spawns' },
@@ -85,6 +88,7 @@ const controlDefinitions = [
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'stripeCompliance', label: '3-stripes compliance', min: 0, max: 100, step: 10, unit: '%', note: 'Share of Lane B drivers', className: 'bottom' },
   { key: 'stripeLength', label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm', note: 'Adjusts the number of stripes', className: 'bottom' },
+  { key: 'bottomGap', label: 'Lane B intended distance', min: 4, max: 8, step: .5, unit: 'm', note: 'Standstill gap compliant drivers target in the striped zone', className: 'bottom' },
   { key: 'simulationSpeed', label: 'Simulation speed', min: 0, max: 4, step: 1, unit: '×', note: '0.5× · 1× · 2× · 4× · 8×', values: [.5, 1, 2, 4, 8] },
 ];
 
@@ -93,10 +97,16 @@ const controls = el('controls');
 const statisticsControls = el('statisticsControls');
 const statisticsSettings = {
   ...Object.fromEntries(Object.keys(graphAxes).map(key => [key, settings[key]])),
-  aggressiveness: 3, aggressivenessMin: 3, aggressivenessMax: 3,
+  aggressiveness: 3, aggressivenessMin: 2, aggressivenessMax: 4,
 };
 const mobileView = { overview: false };
 let animationFrameId = null;
+
+function driverMixLabel(minimum, maximum) {
+  const low = DRIVER_LEVELS[minimum - 1], high = DRIVER_LEVELS[maximum - 1];
+  return low === high ? `All ${low.label.toLowerCase()}` : `${low.label} - ${high.label}`;
+}
+
 for (const def of controlDefinitions) {
   const wrapper = document.createElement('div');
   wrapper.className = `slider-control ${def.range ? 'range-control' : ''} ${def.className || ''}`;
@@ -112,17 +122,13 @@ for (const def of controlDefinitions) {
       settings[`${def.key}Min`] = Number(minimum.value);
       settings[`${def.key}Max`] = Number(maximum.value);
       if (def.key === 'aggressiveness') {
-        const lowProfile = DRIVER_LEVELS[settings.aggressivenessMin - 1];
-        const highProfile = DRIVER_LEVELS[settings.aggressivenessMax - 1];
-        output.textContent = lowProfile === highProfile
-          ? `All ${lowProfile.label.toLowerCase()}`
-          : `${lowProfile.label} - ${highProfile.label}`;
+        output.textContent = driverMixLabel(settings.aggressivenessMin, settings.aggressivenessMax);
       } else output.textContent = `${settings[`${def.key}Min`].toFixed(decimals)}–${settings[`${def.key}Max`].toFixed(decimals)} ${def.unit}`;
       if (state.elapsed === 0) reset();
     };
     minimum.addEventListener('input', updateRange);
     maximum.addEventListener('input', updateRange);
-    if (def.key === 'aggressiveness') output.textContent = 'All normal';
+    if (def.key === 'aggressiveness') output.textContent = driverMixLabel(settings.aggressivenessMin, settings.aggressivenessMax);
     controls.appendChild(wrapper);
     continue;
   }
@@ -137,6 +143,7 @@ for (const def of controlDefinitions) {
       ? `${settings[def.key]}${def.unit}`
       : `${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}`;
     if (def.key === 'topGap') el('topGapMetric').textContent = `${settings.topGap.toFixed(1)}m`;
+    if (def.key === 'bottomGap') el('bottomGapMetric').textContent = `${settings.bottomGap.toFixed(1)}m`;
     if (def.key === 'greenPhase' && !state.running) {
       state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.greenPhase;
     }
@@ -149,7 +156,7 @@ for (const def of controlDefinitions) {
 for (const [key, axis] of Object.entries(graphAxes)) {
   const wrapper = document.createElement('div');
   const isRange = key === 'aggressiveness';
-  wrapper.className = `slider-control ${isRange ? 'range-control' : ''} ${key === 'stripeCompliance' || key === 'stripeLength' ? 'bottom' : ''}`;
+  wrapper.className = `slider-control ${isRange ? 'range-control' : ''} ${key === 'stripeCompliance' || key === 'stripeLength' || key === 'bottomGap' ? 'bottom' : ''}`;
   const inputId = `statistics-${key}`;
   wrapper.innerHTML = isRange
     ? `<label><span>${axis.label}</span><output>${statisticsSettings.aggressivenessMin}–${statisticsSettings.aggressivenessMax}</output></label><div class="range-inputs"><input class="range-min" aria-label="Minimum statistics driver aggressiveness" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings.aggressivenessMin}"><input class="range-max" aria-label="Maximum statistics driver aggressiveness" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings.aggressivenessMax}"></div><small>Random driver level within these bounds</small>`
@@ -617,7 +624,8 @@ function updateLane(lane, dt) {
         && car.followsThreeStripeRule
         && car.position >= STRIPE_ZONE_START && car.position <= settings.stripeLength) {
         state.diagnostics.stripedZoneStops.push({ carId: car.id, time: state.elapsed,
-          gap: distanceToCarAhead(car, aheadCar, car.length, aheadCar.length) });
+          gap: distanceToCarAhead(car, aheadCar, car.length, aheadCar.length),
+          position: car.position, restingGap: car.queueRestingGap });
       }
     }
 
