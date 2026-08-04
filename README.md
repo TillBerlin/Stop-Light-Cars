@@ -58,4 +58,6 @@ The simulation uses a simplified one-dimensional car-following model:
 
 These rules are intended to produce an understandable educational visualization, not a calibrated traffic-engineering prediction.
 
+The statistics panel can sweep green phase, compliance, striped zone length, Lane B intended distance, arrival rate, speed limit (20 to 100 km/h in steps of 10), and driver aggressiveness. The Findings section below the graph records provisional observations from those sweeps; they are working hypotheses awaiting a systematic check, not confirmed results.
+
 The batch graph does not use a separate throughput approximation. Every graph point runs the same 50-millisecond arrival, signal, queueing, driver-behavior, and car-physics timestep as the visible simulation three times for two minutes, using seeded randomness so results are reproducible. The aggressiveness axis sets both population bounds to its selected level.

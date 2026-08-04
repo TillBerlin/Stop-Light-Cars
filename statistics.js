@@ -9,6 +9,7 @@ export const graphAxes = {
   stripeLength: { label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm' },
   bottomGap: { label: 'Lane B intended distance', min: 4, max: 8, step: .5, unit: 'm' },
   arrivalRate: { label: 'Arrival rate', min: 0, max: 20, step: 2, unit: 'cars/min' },
+  speedLimit: { label: 'Speed limit', min: 20, max: 100, step: 10, unit: 'km/h' },
   aggressiveness: { label: 'Driver aggressiveness', min: 1, max: 5, step: 1, unit: '' },
 };
 

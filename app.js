@@ -151,7 +151,7 @@ for (const def of controlDefinitions) {
 for (const [key, axis] of Object.entries(graphAxes)) {
   const wrapper = document.createElement('div');
   const isRange = key === 'aggressiveness';
-  wrapper.className = `slider-control ${isRange ? 'range-control' : ''} ${key === 'stripeCompliance' || key === 'stripeLength' ? 'bottom' : ''}`;
+  wrapper.className = `slider-control ${isRange ? 'range-control' : ''} ${key === 'stripeCompliance' || key === 'stripeLength' || key === 'bottomGap' ? 'bottom' : ''}`;
   const inputId = `statistics-${key}`;
   wrapper.innerHTML = isRange
     ? `<label><span>${axis.label}</span><output>${statisticsSettings.aggressivenessMin}–${statisticsSettings.aggressivenessMax}</output></label><div class="range-inputs"><input class="range-min" aria-label="Minimum statistics driver aggressiveness" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings.aggressivenessMin}"><input class="range-max" aria-label="Maximum statistics driver aggressiveness" type="range" min="${axis.min}" max="${axis.max}" step="${axis.step}" value="${statisticsSettings.aggressivenessMax}"></div><small>Random driver level within these bounds</small>`

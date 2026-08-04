@@ -140,6 +140,12 @@
           <h3 class="model-subhead">Where the idea lives</h3>
           <p class="model-lede">Headway describes moving traffic and fades to zero at rest, so a separate <b>resting gap</b> governs a stopped queue. Lane A always uses 2 metres. In the striped zone, compliant Lane B drivers instead target the <b>Lane B intended distance</b> (4–8 metres, 6 by default) — the whole point of the experiment. A driver commits to that larger gap while still braking, as soon as it can predict its place in a queue forming on red, and holds it while it creeps and waits. The moment the light turns green the queue is dissolving rather than forming, so even a car still standing reverts to the ordinary 2-metre gap. Outside the striped zone, and for non-compliant drivers, Lane B behaves exactly like Lane A.</p>
         </div>
+
+        <div class="model-block">
+          <p class="eyebrow">The simulation itself</p>
+          <h3 class="model-subhead">How the numbers are produced</h3>
+          <p class="model-lede">The model advances in <b>50-millisecond steps</b>, recalculating arrivals, the signal, queueing, driver behaviour and car physics on every step. Vehicles are <b>3.8 to 5.2 metres</b> long, drawn when each car is created, so a queue of ten cars is not a fixed length. The batch statistics are not a faster approximation: every point on the graph runs this same timestep with seeded randomness, which is why results are reproducible but a sweep takes a moment to compute.</p>
+        </div>
       </section>
 
       <section class="story-card limitations-card" aria-labelledby="limitationsTitle">
@@ -168,7 +174,7 @@
         </div>
         <div class="graph-layout">
           <div class="graph-main">
-            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="bottomGap">Lane B intended distance</option><option value="arrivalRate">Arrival rate</option><option value="aggressiveness">Driver aggressiveness</option></select></label><label>Runs per point<select id="graphRuns"><option>3</option><option>5</option><option>10</option></select></label><label>Run length<select id="graphDuration"><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label></div>
+            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="bottomGap">Lane B intended distance</option><option value="arrivalRate">Arrival rate</option><option value="speedLimit">Speed limit</option><option value="aggressiveness">Driver aggressiveness</option></select></label><label>Runs per point<select id="graphRuns"><option>3</option><option>5</option><option>10</option></select></label><label>Run length<select id="graphDuration"><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label></div>
             <div class="statistics-run"><button id="runStatisticsBtn" class="primary-btn" type="button">Run statistics</button><p id="statisticsStatus" role="status">Choose settings, then run statistics to draw the graph.</p></div>
             <div class="chart-wrap" id="statisticsChart" aria-live="polite"><div class="chart-placeholder">The graph will appear after you run statistics.</div></div>
             <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span><span><i class="relative"></i>Relative advantage (B/A)</span></div>
@@ -177,7 +183,41 @@
         </div>
       </section>
 
-      <footer><p><b>MODEL NOTE</b> Cars are 3.8–5.2m long and the simulation steps every 50ms. See <a href="#modelTitle">How the cars behave</a> for driver profiles and the resting-gap rule.</p><p>3 STRIPES · GOOD VIBES</p></footer>
+      <section class="story-card findings-card" aria-labelledby="findingsTitle">
+        <p class="eyebrow">Findings</p>
+        <div class="story-heading">
+          <h2 id="findingsTitle">What the simulation suggests so far</h2>
+          <p>Patterns noticed while exploring the batch graphs above. Each one names the sweep that produced it, so you can re-run it yourself with the sliders.</p>
+        </div>
+        <p class="findings-status"><b>Status: provisional.</b> These are working observations, not yet confirmed by a systematic sweep. Treat them as hypotheses to test, and read them alongside the limitations above — this is a simplified model, not a prediction about real streets.</p>
+        <ol class="findings-list">
+          <li>
+            <h3>Roughly 30% more cars get through</h3>
+            <p>Under normal conditions Lane B clears in the region of 30% more cars than Lane A over the same period. This is the headline effect; everything below describes when it grows or shrinks.</p>
+            <p class="finding-check">Sweep any axis and read the relative advantage (B/A) line.</p>
+          </li>
+          <li>
+            <h3>Long green phases, cautious drivers and higher speed limits help most</h3>
+            <p>The advantage looks largest with a long green phase, a very cautious driver population, and a high speed limit. Cautious drivers have the slowest start-up times, so they have the most to gain from starting together rather than one after another.</p>
+            <p class="finding-check">Sweep <b>Green light duration</b>, <b>Driver aggressiveness</b>, then <b>Speed limit</b>.</p>
+          </li>
+          <li>
+            <h3>About 30 metres of striped zone captures most of the benefit</h3>
+            <p>Under most settings the advantage stops growing once the striped zone reaches roughly 30 metres. A plausible reading is that what matters is getting the <em>first few</em> cars away quickly, because their delay is what the rest of the queue inherits. Extending the zone further back adds little.</p>
+            <p class="finding-check">Sweep <b>Striped zone length</b>.</p>
+          </li>
+          <li>
+            <h3>More compliance is better, but partial compliance still helps</h3>
+            <p>The benefit rises with the share of drivers who adopt the larger gap, and it does not appear to need everyone: even around 30% compliance still shows some gain over Lane A. The idea seems to degrade gradually rather than collapse when part of the population ignores it.</p>
+            <p class="finding-check">Sweep <b>Compliance</b>.</p>
+          </li>
+          <li>
+            <h3>Beyond about 6 metres, the exact distance stops mattering</h3>
+            <p>Increasing the intended distance past roughly 6 metres seems to add little. The suggested explanation is that the gap's only job is to let several drivers pull away at the same moment. Once they are moving they settle into a slow-moving queue at their normal following distance, and whatever gap they started from has been absorbed.</p>
+            <p class="finding-check">Sweep <b>Lane B intended distance</b>.</p>
+          </li>
+        </ol>
+      </section>
     </main>
     <script type="module" src="app.js"></script>
   </body>
