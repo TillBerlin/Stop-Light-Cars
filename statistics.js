@@ -19,7 +19,10 @@ function randomGenerator(seed) {
 }
 
 export function simulateStatisticsRun(parameters, seed = 1) {
-  const random = randomGenerator(seed);
+  // Pair demand and service-time noise so lane differences come from the
+  // striped-zone treatment rather than unrelated random traffic samples.
+  const arrivalRandom = randomGenerator(seed);
+  const serviceRandom = [randomGenerator(seed ^ 0x85ebca6b), randomGenerator(seed ^ 0x85ebca6b)];
   const lanes = [[], []];
   const crossed = [0, 0];
   const totalWait = [0, 0];
@@ -27,7 +30,10 @@ export function simulateStatisticsRun(parameters, seed = 1) {
   for (const lane of lanes) for (let index = 0; index < 10; index++) lane.push(0);
 
   for (let second = 0; second < GRAPH_DURATION_SECONDS; second++) {
-    for (const lane of lanes) if (random() < parameters.arrivalRate / 60) lane.push(second + random());
+    if (arrivalRandom() < parameters.arrivalRate / 60) {
+      const spawnedAt = second + arrivalRandom();
+      for (const lane of lanes) lane.push(spawnedAt);
+    }
     const cycle = parameters.greenPhase + 1 + parameters.greenPhase + 3;
     const phaseTime = second < 1 ? -1 : (second - 1) % cycle;
     if (phaseTime < 0 || phaseTime >= parameters.greenPhase) continue;
@@ -37,7 +43,11 @@ export function simulateStatisticsRun(parameters, seed = 1) {
       crossed[laneIndex]++;
       totalWait[laneIndex] += Math.max(0, second - spawnedAt);
       const stripeInfluence = Math.min(1, parameters.stripeLength / 100) * parameters.stripeCompliance / 100;
-      nextCrossing[laneIndex] = second + 1.75 + random() * .45 + (laneIndex === 1 ? stripeInfluence * .65 : 0);
+      const normalHeadway = 1.75 + serviceRandom[laneIndex]() * .45;
+      // Extra standing room lets part of Lane B's queue start together. The
+      // old model added a delay here, reversing the interactive simulation.
+      const headwayMultiplier = laneIndex === 1 ? 1 - stripeInfluence * .35 : 1;
+      nextCrossing[laneIndex] = second + normalHeadway * headwayMultiplier;
     }
   }
   return { throughput: crossed, waitingTime: crossed.map((count, lane) => count ? totalWait[lane] / count : 0) };
@@ -50,7 +60,8 @@ export function buildStatisticsSeries(axisKey, metricKey, fixedParameters) {
     const x = axis.min + pointIndex * axis.step;
     const sums = [0, 0];
     for (let run = 0; run < GRAPH_RUNS; run++) {
-      const result = simulateStatisticsRun({ ...fixedParameters, [axisKey]: x }, 0x9e3779b9 ^ (pointIndex * 101 + run * 7919));
+      // Common random numbers keep adjacent parameter points comparable.
+      const result = simulateStatisticsRun({ ...fixedParameters, [axisKey]: x }, 0x9e3779b9 ^ (run * 7919));
       sums[0] += result[metricKey][0];
       sums[1] += result[metricKey][1];
     }
