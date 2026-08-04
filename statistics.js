@@ -7,6 +7,7 @@ export const graphAxes = {
   greenPhase: { label: 'Green light duration', min: 5, max: 30, step: 1, unit: 's' },
   stripeCompliance: { label: 'Compliance', min: 0, max: 100, step: 10, unit: '%' },
   stripeLength: { label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm' },
+  bottomGap: { label: 'Lane B intended distance', min: 4, max: 8, step: .5, unit: 'm' },
   arrivalRate: { label: 'Arrival rate', min: 0, max: 20, step: 2, unit: 'cars/min' },
   aggressiveness: { label: 'Driver aggressiveness', min: 1, max: 5, step: 1, unit: '' },
 };

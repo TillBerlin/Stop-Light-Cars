@@ -85,6 +85,7 @@ const controlDefinitions = [
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'stripeCompliance', label: '3-stripes compliance', min: 0, max: 100, step: 10, unit: '%', note: 'Share of Lane B drivers', className: 'bottom' },
   { key: 'stripeLength', label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm', note: 'Adjusts the number of stripes', className: 'bottom' },
+  { key: 'bottomGap', label: 'Lane B intended distance', min: 4, max: 8, step: .5, unit: 'm', note: 'Standstill gap compliant drivers target in the striped zone', className: 'bottom' },
   { key: 'simulationSpeed', label: 'Simulation speed', min: 0, max: 4, step: 1, unit: '×', note: '0.5× · 1× · 2× · 4× · 8×', values: [.5, 1, 2, 4, 8] },
 ];
 
@@ -137,6 +138,7 @@ for (const def of controlDefinitions) {
       ? `${settings[def.key]}${def.unit}`
       : `${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}`;
     if (def.key === 'topGap') el('topGapMetric').textContent = `${settings.topGap.toFixed(1)}m`;
+    if (def.key === 'bottomGap') el('bottomGapMetric').textContent = `${settings.bottomGap.toFixed(1)}m`;
     if (def.key === 'greenPhase' && !state.running) {
       state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.greenPhase;
     }
