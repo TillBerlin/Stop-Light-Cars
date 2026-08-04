@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStatisticsSeries, GRAPH_DURATION_SECONDS, GRAPH_RUNS } from './statistics.js';
+import { buildStatisticsSeries, GRAPH_DURATION_SECONDS, GRAPH_RUNS, graphScale } from './statistics.js';
 
 const defaults = { greenPhase: 20, arrivalRate: 10, stripeCompliance: 100, stripeLength: 50 };
 
-test('statistics use ten five-minute runs and produce both lane values', () => {
-  assert.equal(GRAPH_RUNS, 10);
-  assert.equal(GRAPH_DURATION_SECONDS, 300);
+test('statistics use three two-minute runs and produce both lane values', () => {
+  assert.equal(GRAPH_RUNS, 3);
+  assert.equal(GRAPH_DURATION_SECONDS, 120);
   const calls = [];
   const series = buildStatisticsSeries('greenPhase', 'throughput', defaults, (parameters, seed) => {
     calls.push({ parameters, seed });
@@ -16,6 +16,12 @@ test('statistics use ten five-minute runs and produce both lane values', () => {
   assert.deepEqual(series[0].lanes.length, 2);
   assert.ok(series.every(point => point.lanes.every(Number.isFinite)));
   assert.equal(calls.length, series.length * GRAPH_RUNS);
+});
+
+test('graph scale uses readable round-number ticks', () => {
+  assert.deepEqual(graphScale(43), { maximum: 50, ticks: [0, 10, 20, 30, 40, 50] });
+  assert.deepEqual(graphScale(17), { maximum: 20, ticks: [0, 5, 10, 15, 20] });
+  assert.deepEqual(graphScale(0), { maximum: 5, ticks: [0, 1, 2, 3, 4, 5] });
 });
 
 test('statistics require a simulation runner instead of using a separate approximation', () => {

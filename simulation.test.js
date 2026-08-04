@@ -165,7 +165,7 @@ test('default signal uses a 20-second green and a 23-second red phase', () => {
   assert.equal(runHeadlessSimulation(45.05).phase, 'green');
 });
 
-test('batch statistics run the exact car simulation for five minutes', () => {
+test('batch statistics run the exact car simulation for their configured duration', () => {
   const result = runStatisticsSimulation({
     greenPhase: 20, arrivalRate: 10, stripeCompliance: 100, stripeLength: 50,
   }, 42);
