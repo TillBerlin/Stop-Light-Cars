@@ -17,6 +17,7 @@ import {
   safeArrivalSpeed,
 } from './car-physics.js';
 import { carStatusLabel } from './car-status.js';
+import { DRIVER_LEVELS, drawDriverLevel } from './driver-profiles.js';
 import {
   BEHAVIOR,
   CONTROL,
@@ -43,10 +44,6 @@ const STOP_LINE_BUFFER = .5;
 const ROAD_MIN = -24;
 const ROAD_MAX = 110;
 const INITIAL_CARS = 10;
-// Keep the prediction model aligned with the deceleration cars actually use.
-// Overestimating this rate makes drivers wait too long before braking and then
-// reach a stopped leader before their gentle braking can finish.
-const BRAKE_RATE = 2.5;
 const SPAWN_BUFFER = 8;
 const INITIAL_RED_DURATION = 1;
 const ORANGE_DURATION = 1;
@@ -54,21 +51,16 @@ const CREEP_SPEED = 1.5;
 const STOPPED_SPEED = .05;
 const REACTION_TIME = .5;
 const COLLISION_REACTION_HORIZON = 1;
-const MAXIMUM_ACCELERATION = 2;
-const MAXIMUM_JERK = 2;
 // Ordinary pedal modulation is driver-limited; an emergency stop is
 // limited by how fast the brake system can build pressure.
 const EMERGENCY_JERK = 10;
 
-export function jerkLimitFor(behavior, requestedAcceleration, currentAcceleration) {
+export function jerkLimitFor(behavior, requestedAcceleration, currentAcceleration, ordinaryJerk = 2) {
   return behavior === BEHAVIOR.EMERGENCY_BRAKE
     && requestedAcceleration < currentAcceleration
     ? EMERGENCY_JERK
-    : MAXIMUM_JERK;
+    : ordinaryJerk;
 }
-// A 1.5-second moving headway is a moderate human following interval. The
-// resting-gap controls still determine the compact spacing of stopped queues.
-const MOVING_TIME_HEADWAY = 1.5;
 const MOVEMENT_WINDOW = .2;
 const STOP_WINDOW = .1;
 const STOP_POSITION_TOLERANCE = .15;
@@ -81,14 +73,13 @@ export const SIMULATION_DURATION_SECONDS = 5 * 60;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
 const settings = {
-  startupMin: 1.7, startupMax: 2,
-  aggressiveness: 1,
+  aggressivenessMin: 3, aggressivenessMax: 3,
   clearingMin: 4, clearingMax: 4,
   greenPhase: 20, arrivalRate: 10, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
   stripeCompliance: 100, stripeLength: 50, simulationSpeed: 1,
 };
 const controlDefinitions = [
-  { key: 'aggressiveness', label: 'Driver aggressiveness', min: .5, max: 1.5, step: .1, unit: '×', note: 'Shared by all drivers' },
+  { key: 'aggressiveness', label: 'Driver mix', min: 1, max: 5, step: 1, unit: '', range: true, note: 'Level is fixed when each car spawns' },
   { key: 'greenPhase', label: 'Green phase', min: 5, max: 30, step: 1, unit: 's', note: 'Red phase is green + 3s' },
   { key: 'arrivalRate', label: 'Arrival rate', min: 0, max: 20, step: 1, unit: 'cars/min', note: 'New cars per lane' },
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
@@ -100,7 +91,10 @@ const controlDefinitions = [
 const el = id => document.getElementById(id);
 const controls = el('controls');
 const statisticsControls = el('statisticsControls');
-const statisticsSettings = Object.fromEntries(Object.keys(graphAxes).map(key => [key, settings[key]]));
+const statisticsSettings = {
+  ...Object.fromEntries(Object.keys(graphAxes).map(key => [key, settings[key]])),
+  aggressiveness: 3, aggressivenessMin: 3, aggressivenessMax: 3,
+};
 const mobileView = { overview: false };
 let animationFrameId = null;
 for (const def of controlDefinitions) {
@@ -117,11 +111,18 @@ for (const def of controlDefinitions) {
       if (event.target === maximum && Number(maximum.value) < Number(minimum.value)) minimum.value = maximum.value;
       settings[`${def.key}Min`] = Number(minimum.value);
       settings[`${def.key}Max`] = Number(maximum.value);
-      output.textContent = `${settings[`${def.key}Min`].toFixed(decimals)}–${settings[`${def.key}Max`].toFixed(decimals)} ${def.unit}`;
+      if (def.key === 'aggressiveness') {
+        const lowProfile = DRIVER_LEVELS[settings.aggressivenessMin - 1];
+        const highProfile = DRIVER_LEVELS[settings.aggressivenessMax - 1];
+        output.textContent = lowProfile === highProfile
+          ? `All ${lowProfile.label.toLowerCase()}`
+          : `${lowProfile.label} - ${highProfile.label}`;
+      } else output.textContent = `${settings[`${def.key}Min`].toFixed(decimals)}–${settings[`${def.key}Max`].toFixed(decimals)} ${def.unit}`;
       if (state.elapsed === 0) reset();
     };
     minimum.addEventListener('input', updateRange);
     maximum.addEventListener('input', updateRange);
+    if (def.key === 'aggressiveness') output.textContent = 'All normal';
     controls.appendChild(wrapper);
     continue;
   }
@@ -154,6 +155,10 @@ for (const [key, axis] of Object.entries(graphAxes)) {
   const output = wrapper.querySelector('output');
   input.addEventListener('input', () => {
     statisticsSettings[key] = Number(input.value);
+    if (key === 'aggressiveness') {
+      statisticsSettings.aggressivenessMin = statisticsSettings[key];
+      statisticsSettings.aggressivenessMax = statisticsSettings[key];
+    }
     output.textContent = `${statisticsSettings[key]} ${axis.unit}`;
     markStatisticsStale();
   });
@@ -184,7 +189,12 @@ function renderStatisticsGraph() {
     ${points.map(point => `<circle class="chart-point lane-a" cx="${xScale(point.x)}" cy="${yScale(point.lanes[0])}" r="3"/><circle class="chart-point lane-b" cx="${xScale(point.x)}" cy="${yScale(point.lanes[1])}" r="3"/>`).join('')}
     <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text>
   </svg>`;
-  el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => `<div><dt>${def.label}</dt><dd>${statisticsSettings[key]}${def.unit}</dd></div>`).join('');
+  el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => {
+    const value = key === 'aggressiveness'
+      ? `${statisticsSettings.aggressivenessMin}-${statisticsSettings.aggressivenessMax}`
+      : statisticsSettings[key];
+    return `<div><dt>${def.label}</dt><dd>${value}${def.unit}</dd></div>`;
+  }).join('');
   el('runStatisticsBtn').disabled = false;
   el('runStatisticsBtn').textContent = 'Run statistics';
   el('statisticsStatus').textContent = 'Statistics are up to date.';
@@ -235,6 +245,7 @@ function vehicleProfile(index) {
     vehicleProfiles[index] = {
       color: CAR_COLORS[index % CAR_COLORS.length],
       length: randomBetween(CAR_LENGTH_MIN, CAR_LENGTH_MAX),
+      driverLevel: drawDriverLevel(settings.aggressivenessMin, settings.aggressivenessMax),
     };
   }
   return vehicleProfiles[index];
@@ -242,6 +253,7 @@ function vehicleProfile(index) {
 
 function createCar(position, laneIndex, profileIndex, initialSpeed = 0, arrivalTime = 0) {
   const profile = vehicleProfile(profileIndex);
+  const driver = DRIVER_LEVELS[profile.driverLevel - 1];
   const node = document.createElement('div');
   node.className = 'car';
   node.style.setProperty('--car-color', profile.color);
@@ -260,7 +272,12 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0, arrivalT
     acceleration: 0, arrivalTime,
     movementSamples: [{ time: state.elapsed, position }],
     stoppedWithOpenGapSince: null,
-    startup: randomBetween(settings.startupMin, settings.startupMax),
+    driverLevel: profile.driverLevel,
+    jerk: driver.jerk,
+    maxAcceleration: driver.maxAccel,
+    brakeRate: driver.brakeRate,
+    timeHeadway: driver.headway,
+    startup: randomBetween(driver.startup - .15, driver.startup + .15),
     clearing: randomBetween(settings.clearingMin, settings.clearingMax),
     followsThreeStripeRule: laneIndex === 1
       ? followsThreeStripeRule(settings.stripeCompliance)
@@ -328,7 +345,7 @@ function updateLane(lane, dt) {
       const ownStopPosition = predictedStopPosition(
         current.position,
         current.speed,
-        BRAKE_RATE,
+        car.brakeRate,
         car.reactionTime,
         lineBoundary,
       );
@@ -336,7 +353,7 @@ function updateLane(lane, dt) {
         ? predictedStopPosition(
           ahead.position,
           ahead.speed,
-          BRAKE_RATE,
+          car.brakeRate,
           car.reactionTime,
           STOP_POSITION + aheadCar.length / 2 + STOP_LINE_BUFFER,
         )
@@ -428,7 +445,7 @@ function updateLane(lane, dt) {
       const preferredGap = preferredFollowingDistance(
         settings.topGap,
         current.speed,
-        MOVING_TIME_HEADWAY,
+        car.timeHeadway,
       );
       desiredGap = desiredFollowingDistance(preferredGap, standstillGap, queueIsForming);
       const targetGap = queueIsForming ? standstillGap : settings.topGap;
@@ -457,8 +474,8 @@ function updateLane(lane, dt) {
         gap: controllerGap,
         desiredGap: controllerDesiredGap,
         leaderSpeed: controllerLeaderSpeed,
-        maximumAcceleration: MAXIMUM_ACCELERATION * settings.aggressiveness,
-        comfortableDeceleration: BRAKE_RATE,
+        maximumAcceleration: car.maxAcceleration,
+        comfortableDeceleration: car.brakeRate,
       });
 
       const collisionTime = timeToContact(gap, current.speed, ahead?.speed || 0);
@@ -498,6 +515,7 @@ function updateLane(lane, dt) {
         car.behavior,
         requestedAcceleration,
         current.acceleration,
+        car.jerk,
       );
       car.acceleration = limitAccelerationByJerk(
         current.acceleration,
@@ -605,7 +623,7 @@ function beginOrangePhase() {
     car.committedToCross = car.position > STOP_POSITION && cannotStopBeforeLine(
       car.position - (STOP_POSITION + car.length / 2 + STOP_LINE_BUFFER),
       car.speed,
-      BRAKE_RATE,
+      car.brakeRate,
       car.reactionTime,
     );
   }
@@ -630,7 +648,9 @@ function materializeArrivingCars() {
     const leader = lane.cars.reduce((furthest, car) => (
       !furthest || car.position > furthest.position ? car : furthest
     ), undefined);
-    const arrivingLength = vehicleProfile(pending.profileIndex).length;
+    const arrivingProfile = vehicleProfile(pending.profileIndex);
+    const arrivingDriver = DRIVER_LEVELS[arrivingProfile.driverLevel - 1];
+    const arrivingLength = arrivingProfile.length;
     const gap = leader
       ? entranceGap(leader.position, ROAD_MAX, arrivingLength, leader.length)
       : Infinity;
@@ -642,9 +662,9 @@ function materializeArrivingCars() {
       leader?.speed || 0,
       settings.speedLimit / 3.6,
       settings.topGap,
-      BRAKE_RATE,
+      arrivingDriver.brakeRate,
       REACTION_TIME,
-      MOVING_TIME_HEADWAY,
+      arrivingDriver.headway,
     );
     lane.cars.push(createCar(ROAD_MAX, lane.index, pending.profileIndex, initialSpeed, pending.arrivalTime));
     lane.pendingArrivals.shift();
@@ -704,7 +724,7 @@ function seededRandom(seed) {
 // Batch statistics deliberately call the same initialization, signal, arrival,
 // driver-behavior and car-physics functions as the visible simulation. Globals
 // are swapped temporarily so calculating the graph cannot disturb the live run.
-export function runStatisticsSimulation(parameters, seed = 1) {
+export function runStatisticsSimulation(parameters, seed = 1, duration = GRAPH_DURATION_SECONDS) {
   const savedState = { ...state };
   const savedSettings = { ...settings };
   const savedProfiles = vehicleProfiles;
@@ -720,10 +740,11 @@ export function runStatisticsSimulation(parameters, seed = 1) {
     elapsed: 0, arrivalClock: 0, lastFrame: null, diagnostics: freshDiagnostics(), lanes: [],
   });
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
-  runHeadlessSimulation(GRAPH_DURATION_SECONDS);
+  runHeadlessSimulation(duration);
   const result = {
     throughput: state.lanes.map(lane => lane.crossed),
     waitingTime: state.lanes.map(lane => lane.crossed ? lane.totalWait / lane.crossed : 0),
+    diagnostics: structuredClone(state.diagnostics),
   };
   Object.assign(state, savedState);
   Object.assign(settings, savedSettings);

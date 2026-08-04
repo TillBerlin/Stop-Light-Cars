@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildStatisticsSeries, GRAPH_DURATION_SECONDS, GRAPH_RUNS, graphScale } from './statistics.js';
 
-const defaults = { greenPhase: 20, arrivalRate: 10, stripeCompliance: 100, stripeLength: 50 };
+const defaults = {
+  greenPhase: 20, arrivalRate: 10, stripeCompliance: 100, stripeLength: 50,
+  aggressiveness: 3, aggressivenessMin: 3, aggressivenessMax: 3,
+};
 
 test('statistics use three two-minute runs and produce both lane values', () => {
   assert.equal(GRAPH_RUNS, 3);
@@ -40,4 +43,32 @@ test('striped-zone compliance improves Lane B without changing Lane A', () => {
   assert.ok(laneB.every((value, index) => index === 0 || value >= laneB[index - 1]));
   assert.equal(laneB[0], laneA[0]);
   assert.ok(laneB.at(-1) > laneA.at(-1));
+});
+
+test('aggressiveness sweep uses homogeneous populations and increases throughput monotonically', () => {
+  const calls = [];
+  const series = buildStatisticsSeries('aggressiveness', 'throughput', defaults, parameters => {
+    calls.push(parameters);
+    return {
+      throughput: [parameters.aggressivenessMin * 10, parameters.aggressivenessMax * 12],
+      waitingTime: [0, 0],
+    };
+  });
+
+  assert.ok(calls.every(parameters => (
+    parameters.aggressiveness === parameters.aggressivenessMin
+    && parameters.aggressivenessMin === parameters.aggressivenessMax
+  )));
+  for (const lane of [0, 1]) {
+    assert.ok(series.every((point, index) => index === 0 || point.lanes[lane] > series[index - 1].lanes[lane]));
+  }
+});
+
+test('compliance sweep retains improvements above forty percent', () => {
+  const series = buildStatisticsSeries('stripeCompliance', 'throughput', defaults, parameters => ({
+    throughput: [40, 40 + parameters.stripeCompliance / 10], waitingTime: [0, 0],
+  }));
+  const laneB = series.map(point => point.lanes[1]);
+  assert.ok(laneB.every((value, index) => index === 0 || value > laneB[index - 1]));
+  assert.ok(laneB.at(-1) > laneB[4]);
 });

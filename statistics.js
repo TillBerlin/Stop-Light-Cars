@@ -6,6 +6,7 @@ export const graphAxes = {
   stripeCompliance: { label: 'Compliance', min: 0, max: 100, step: 10, unit: '%' },
   stripeLength: { label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm' },
   arrivalRate: { label: 'Arrival rate', min: 0, max: 20, step: 2, unit: 'cars/min' },
+  aggressiveness: { label: 'Driver aggressiveness', min: 1, max: 5, step: 1, unit: '' },
 };
 
 export const graphMetrics = {
@@ -36,7 +37,10 @@ export function buildStatisticsSeries(axisKey, metricKey, fixedParameters, simul
     const sums = [0, 0];
     for (let run = 0; run < GRAPH_RUNS; run++) {
       // Common random numbers keep adjacent parameter points comparable.
-      const result = simulateRun({ ...fixedParameters, [axisKey]: x }, 0x9e3779b9 ^ (run * 7919));
+      const parameters = axisKey === 'aggressiveness'
+        ? { ...fixedParameters, aggressiveness: x, aggressivenessMin: x, aggressivenessMax: x }
+        : { ...fixedParameters, [axisKey]: x };
+      const result = simulateRun(parameters, 0x9e3779b9 ^ (run * 7919));
       sums[0] += result[metricKey][0];
       sums[1] += result[metricKey][1];
     }
