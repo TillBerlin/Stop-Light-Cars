@@ -28,6 +28,7 @@ import {
   startupOpportunity,
   timeToContact,
 } from './driver-behavior.js';
+import { buildStatisticsSeries, graphAxes, graphMetrics } from './statistics.js';
 
 const CAR_LENGTH_MIN = 3.8;
 const CAR_LENGTH_MAX = 5.2;
@@ -83,6 +84,7 @@ const el = id => document.getElementById(id);
 const controls = el('controls');
 const mobileView = { overview: false };
 let animationFrameId = null;
+let graphRenderTimer = null;
 for (const def of controlDefinitions) {
   const wrapper = document.createElement('div');
   wrapper.className = `slider-control ${def.range ? 'range-control' : ''} ${def.className || ''}`;
@@ -121,8 +123,42 @@ for (const def of controlDefinitions) {
     }
     if ((def.key === 'topGap' || def.key === 'bottomGap' || def.key === 'stripeCompliance' || def.key === 'stripeLength') && state.elapsed === 0) reset();
     updateUI();
+    scheduleGraphRender();
   });
   controls.appendChild(wrapper);
+}
+
+function chartPolyline(points, lane, xScale, yScale) {
+  return points.map(point => `${xScale(point.x)},${yScale(point.lanes[lane])}`).join(' ');
+}
+
+function renderStatisticsGraph() {
+  const axisKey = el('graphAxis').value || 'greenPhase';
+  const metricKey = el('graphMetric').value || 'throughput';
+  const axis = graphAxes[axisKey];
+  const metric = graphMetrics[metricKey];
+  const points = buildStatisticsSeries(axisKey, metricKey, settings);
+  const width = 760, height = 350, left = 66, right = 22, top = 22, bottom = 55;
+  const maximum = Math.max(1, ...points.flatMap(point => point.lanes)) * 1.1;
+  const xScale = value => left + (value - axis.min) / (axis.max - axis.min) * (width - left - right);
+  const yScale = value => top + (1 - value / maximum) * (height - top - bottom);
+  const ticks = Array.from({ length: 5 }, (_, index) => maximum * index / 4);
+  const stride = Math.max(1, Math.ceil(points.length / 6));
+  const xTicks = points.filter((_, index) => index % stride === 0 || index === points.length - 1);
+  el('statisticsChart').innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${metric.label} by ${axis.label} for lanes A and B">
+    ${ticks.map(value => `<line class="chart-grid" x1="${left}" y1="${yScale(value)}" x2="${width - right}" y2="${yScale(value)}"/><text class="chart-label" x="${left - 10}" y="${yScale(value) + 4}" text-anchor="end">${value.toFixed(metricKey === 'waitingTime' ? 1 : 0)}</text>`).join('')}
+    ${xTicks.map(point => `<text class="chart-label" x="${xScale(point.x)}" y="${height - 28}" text-anchor="middle">${point.x}${axis.unit}</text>`).join('')}
+    <line class="chart-axis" x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}"/><line class="chart-axis" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"/>
+    <polyline class="chart-line lane-a" points="${chartPolyline(points, 0, xScale, yScale)}"/><polyline class="chart-line lane-b" points="${chartPolyline(points, 1, xScale, yScale)}"/>
+    ${points.map(point => `<circle class="chart-point lane-a" cx="${xScale(point.x)}" cy="${yScale(point.lanes[0])}" r="3"/><circle class="chart-point lane-b" cx="${xScale(point.x)}" cy="${yScale(point.lanes[1])}" r="3"/>`).join('')}
+    <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text>
+  </svg>`;
+  el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => `<div><dt>${def.label}</dt><dd>${settings[key]}${def.unit}</dd></div>`).join('');
+}
+
+function scheduleGraphRender() {
+  clearTimeout(graphRenderTimer);
+  graphRenderTimer = setTimeout(renderStatisticsGraph, 80);
 }
 
 let nextCarId = 1;
@@ -774,9 +810,12 @@ el('viewToggle').addEventListener('click', () => {
   mobileView.overview = !mobileView.overview;
   updateViewMode();
 });
+el('graphAxis').addEventListener('change', renderStatisticsGraph);
+el('graphMetric').addEventListener('change', renderStatisticsGraph);
 window.addEventListener('resize', render);
 if ('ResizeObserver' in window) {
   const roadResizeObserver = new window.ResizeObserver(render);
   roadResizeObserver.observe(el('road'));
 }
 reset();
+renderStatisticsGraph();
