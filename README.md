@@ -1,17 +1,17 @@
 # Green Wave Lab
 
-An interactive traffic simulation showing how two queues respond to one traffic light. Both lanes share start-up time, driver aggressiveness, clearing distance, and signal timing; each lane has its own resting gap so their throughput can be compared.
+An interactive traffic simulation showing how two queues respond to one traffic light. Both lanes share fixed start-up and clearing behavior, driver aggressiveness, and signal timing; Lane B uses a larger resting gap in the striped zone so lane throughput can be compared.
 
 ## Features
 
 - Ten cars initially queue in each lane, with lengths sampled between 3.8 and 5.2 meters.
 - Drivers have persistent `WAIT`, `STARTUP`, `DRIVE`, and `EMERGENCY BRAKE` behaviors. The labels describe driver intent instead of changing whenever instantaneous speed crosses a threshold.
-- A waiting driver starts reacting on green after its leader moves at least 0.05 meters within 0.2 seconds or once the bumper gap reaches the configured clearing distance. On red or orange, a gap of twice the clearing distance also starts the reaction, allowing a car to close an unusually large queue gap without proceeding through the signal.
+- A waiting driver starts reacting on green after its leader moves at least 0.05 meters within 0.2 seconds or once the bumper gap reaches the fixed clearing distance. On red or orange, a gap of twice the clearing distance also starts the reaction, allowing a car to close an unusually large queue gap without proceeding through the signal.
 - After the start-up countdown, the ordinary clearing distance must still be available. Otherwise the driver returns to `WAIT`. A driver remains stationary throughout `STARTUP`.
 - While driving, each car continuously recalculates acceleration from its target speed, bumper gap, desired gap, and closing speed. All drivers currently share one aggressiveness setting instead of receiving different acceleration capabilities.
 - Ordinary pedal adjustments have no artificial reaction delay, but acceleration is smoothed by a 2 m/s³ jerk limit. A closing gap that predicts contact within one second is treated as a surprising hazard: the driver maintains the existing acceleration during a 0.5-second reaction interval, so a car already slowing continues to slow, and then applies the calculated collision-avoidance deceleration.
-- Equal, configurable red and green phases repeat automatically, separated by a one-second orange phase. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
-- New-car demand continues in each lane at the configured rate even when its entrance is blocked. Waiting arrivals appear in an upstream counter and enter as space becomes available, at a speed based on the leader and available stopping distance. The default is 30 cars per minute, and the arrival-rate slider ranges from 10 to 60 cars per minute in increments of 5.
+- Configurable green phases default to 20 seconds; each red phase lasts three seconds longer than the selected green phase. The phases repeat automatically with a one-second orange phase between them. Each driver independently stops for orange when there is enough braking distance or commits to crossing when stopping safely is no longer possible.
+- New-car demand continues in each lane at the configured rate even when its entrance is blocked. Waiting arrivals appear in an upstream counter and enter as space becomes available, at a speed based on the leader and available stopping distance. The default is 10 cars per minute, and the arrival-rate slider ranges from 0 to 20 cars per minute in increments of 1.
 - Live crossed-car counts and phase countdown.
 - Play, pause, and restart controls.
 - Responsive, accessible static application built with Vite.

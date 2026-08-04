@@ -59,23 +59,21 @@ const STRIPE_SPACING = 2;
 const STRIPE_ZONE_START = 0;
 const DISTANCE_MARKER_SPACING = 10;
 const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
+const RED_PHASE_OFFSET = 3;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
 const settings = {
   startupMin: 1.7, startupMax: 2,
   aggressiveness: 1,
   clearingMin: 4, clearingMax: 4,
-  phase: 12, arrivalRate: 30, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
+  greenPhase: 20, arrivalRate: 10, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
   stripeCompliance: 100, stripeLength: 50, simulationSpeed: 1,
 };
 const controlDefinitions = [
-  { key: 'startup', label: 'Start-up time', min: .1, max: 2.5, step: .1, unit: 's', note: 'Uniform range per driver', range: true },
   { key: 'aggressiveness', label: 'Driver aggressiveness', min: .5, max: 1.5, step: .1, unit: '×', note: 'Shared by all drivers' },
-  { key: 'clearing', label: 'Clearing distance', min: 2, max: 15, step: .5, unit: 'm', note: 'Uniform range per driver', range: true },
-  { key: 'phase', label: 'Green / red time', min: 5, max: 30, step: 1, unit: 's', note: 'Equal phase duration' },
-  { key: 'arrivalRate', label: 'Arrival rate', min: 10, max: 60, step: 5, unit: 'cars/min', note: 'New cars per lane' },
+  { key: 'greenPhase', label: 'Green phase', min: 5, max: 30, step: 1, unit: 's', note: 'Red phase is green + 3s' },
+  { key: 'arrivalRate', label: 'Arrival rate', min: 0, max: 20, step: 1, unit: 'cars/min', note: 'New cars per lane' },
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
-  { key: 'topGap', label: 'Top resting gap', min: 1, max: 10, step: .5, unit: 'm', note: 'Lane A only', className: 'top' },
   { key: 'stripeCompliance', label: '3-stripes compliance', min: 0, max: 100, step: 10, unit: '%', note: 'Share of Lane B drivers', className: 'bottom' },
   { key: 'stripeLength', label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm', note: 'Adjusts the number of stripes', className: 'bottom' },
   { key: 'simulationSpeed', label: 'Simulation speed', min: 0, max: 4, step: 1, unit: '×', note: '0.5× · 1× · 2× · 4× · 8×', values: [.5, 1, 2, 4, 8] },
@@ -118,8 +116,8 @@ for (const def of controlDefinitions) {
       ? `${settings[def.key]}${def.unit}`
       : `${settings[def.key].toFixed(def.step < 1 ? 1 : 0)} ${def.unit}`;
     if (def.key === 'topGap') el('topGapMetric').textContent = `${settings.topGap.toFixed(1)}m`;
-    if (def.key === 'phase' && !state.running) {
-      state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.phase;
+    if (def.key === 'greenPhase' && !state.running) {
+      state.phaseRemaining = state.elapsed === 0 ? INITIAL_RED_DURATION : settings.greenPhase;
     }
     if ((def.key === 'topGap' || def.key === 'bottomGap' || def.key === 'stripeCompliance' || def.key === 'stripeLength') && state.elapsed === 0) reset();
     updateUI();
@@ -536,7 +534,7 @@ function beginOrangePhase() {
 
 function beginRedPhase() {
   state.phase = 'red';
-  state.phaseRemaining += settings.phase;
+  state.phaseRemaining += settings.greenPhase + RED_PHASE_OFFSET;
 }
 
 function queueArrivingCars() {
@@ -595,11 +593,11 @@ function advanceSimulation(duration) {
       else if (state.phase === 'orange') beginRedPhase();
       else {
         state.phase = 'green';
-        state.phaseRemaining += settings.phase;
+        state.phaseRemaining += settings.greenPhase;
       }
     }
     state.lanes.forEach(lane => updateLane(lane, dt));
-    const arrivalInterval = 60 / settings.arrivalRate;
+    const arrivalInterval = settings.arrivalRate > 0 ? 60 / settings.arrivalRate : Infinity;
     while (state.arrivalClock >= arrivalInterval) {
       queueArrivingCars();
       state.arrivalClock -= arrivalInterval;
