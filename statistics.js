@@ -1,5 +1,5 @@
-export const GRAPH_RUNS = 10;
-export const GRAPH_DURATION_SECONDS = 5 * 60;
+export const GRAPH_RUNS = 3;
+export const GRAPH_DURATION_SECONDS = 2 * 60;
 
 export const graphAxes = {
   greenPhase: { label: 'Green light duration', min: 5, max: 30, step: 1, unit: 's' },
@@ -12,6 +12,20 @@ export const graphMetrics = {
   throughput: { label: 'Cars travelled through in total', unit: 'cars' },
   waitingTime: { label: 'Average waiting time', unit: 's' },
 };
+
+export function graphScale(maximumValue, targetTickCount = 6) {
+  const safeMaximum = Math.max(5, maximumValue);
+  const roughStep = safeMaximum / targetTickCount;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalized = roughStep / magnitude;
+  const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  const step = multiplier * magnitude;
+  const maximum = Math.max(step, Math.ceil(safeMaximum / step) * step);
+  return {
+    maximum,
+    ticks: Array.from({ length: Math.round(maximum / step) + 1 }, (_, index) => index * step),
+  };
+}
 
 export function buildStatisticsSeries(axisKey, metricKey, fixedParameters, simulateRun) {
   if (typeof simulateRun !== 'function') throw new TypeError('An exact simulation runner is required');

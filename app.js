@@ -28,7 +28,13 @@ import {
   startupOpportunity,
   timeToContact,
 } from './driver-behavior.js';
-import { buildStatisticsSeries, graphAxes, graphMetrics } from './statistics.js';
+import {
+  buildStatisticsSeries,
+  GRAPH_DURATION_SECONDS,
+  graphAxes,
+  graphMetrics,
+  graphScale,
+} from './statistics.js';
 
 const CAR_LENGTH_MIN = 3.8;
 const CAR_LENGTH_MAX = 5.2;
@@ -87,7 +93,6 @@ const statisticsControls = el('statisticsControls');
 const statisticsSettings = Object.fromEntries(Object.keys(graphAxes).map(key => [key, settings[key]]));
 const mobileView = { overview: false };
 let animationFrameId = null;
-let graphRenderTimer = null;
 for (const def of controlDefinitions) {
   const wrapper = document.createElement('div');
   wrapper.className = `slider-control ${def.range ? 'range-control' : ''} ${def.className || ''}`;
@@ -126,7 +131,6 @@ for (const def of controlDefinitions) {
     }
     if ((def.key === 'topGap' || def.key === 'bottomGap' || def.key === 'stripeCompliance' || def.key === 'stripeLength') && state.elapsed === 0) reset();
     updateUI();
-    scheduleGraphRender();
   });
   controls.appendChild(wrapper);
 }
@@ -141,7 +145,7 @@ for (const [key, axis] of Object.entries(graphAxes)) {
   input.addEventListener('input', () => {
     statisticsSettings[key] = Number(input.value);
     output.textContent = `${statisticsSettings[key]} ${axis.unit}`;
-    scheduleGraphRender();
+    markStatisticsStale();
   });
   statisticsControls.appendChild(wrapper);
 }
@@ -157,14 +161,13 @@ function renderStatisticsGraph() {
   const metric = graphMetrics[metricKey];
   const points = buildStatisticsSeries(axisKey, metricKey, statisticsSettings, runStatisticsSimulation);
   const width = 760, height = 350, left = 66, right = 22, top = 22, bottom = 55;
-  const maximum = Math.max(1, ...points.flatMap(point => point.lanes)) * 1.1;
+  const { maximum, ticks } = graphScale(Math.max(...points.flatMap(point => point.lanes)) * 1.05);
   const xScale = value => left + (value - axis.min) / (axis.max - axis.min) * (width - left - right);
   const yScale = value => top + (1 - value / maximum) * (height - top - bottom);
-  const ticks = Array.from({ length: 5 }, (_, index) => maximum * index / 4);
   const stride = Math.max(1, Math.ceil(points.length / 6));
   const xTicks = points.filter((_, index) => index % stride === 0 || index === points.length - 1);
   el('statisticsChart').innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${metric.label} by ${axis.label} for lanes A and B">
-    ${ticks.map(value => `<line class="chart-grid" x1="${left}" y1="${yScale(value)}" x2="${width - right}" y2="${yScale(value)}"/><text class="chart-label" x="${left - 10}" y="${yScale(value) + 4}" text-anchor="end">${value.toFixed(metricKey === 'waitingTime' ? 1 : 0)}</text>`).join('')}
+    ${ticks.map(value => `<line class="chart-grid" x1="${left}" y1="${yScale(value)}" x2="${width - right}" y2="${yScale(value)}"/><text class="chart-label" x="${left - 10}" y="${yScale(value) + 4}" text-anchor="end">${value}</text>`).join('')}
     ${xTicks.map(point => `<text class="chart-label" x="${xScale(point.x)}" y="${height - 28}" text-anchor="middle">${point.x}${axis.unit}</text>`).join('')}
     <line class="chart-axis" x1="${left}" y1="${top}" x2="${left}" y2="${height - bottom}"/><line class="chart-axis" x1="${left}" y1="${height - bottom}" x2="${width - right}" y2="${height - bottom}"/>
     <polyline class="chart-line lane-a" points="${chartPolyline(points, 0, xScale, yScale)}"/><polyline class="chart-line lane-b" points="${chartPolyline(points, 1, xScale, yScale)}"/>
@@ -172,11 +175,13 @@ function renderStatisticsGraph() {
     <text class="chart-title" x="${(left + width - right) / 2}" y="${height - 5}" text-anchor="middle">${axis.label}</text><text class="chart-title" transform="translate(15 ${(top + height - bottom) / 2}) rotate(-90)" text-anchor="middle">${metric.label} (${metric.unit})</text>
   </svg>`;
   el('fixedParameters').innerHTML = Object.entries(graphAxes).filter(([key]) => key !== axisKey).map(([key, def]) => `<div><dt>${def.label}</dt><dd>${statisticsSettings[key]}${def.unit}</dd></div>`).join('');
+  el('runStatisticsBtn').disabled = false;
+  el('runStatisticsBtn').textContent = 'Run statistics';
+  el('statisticsStatus').textContent = 'Statistics are up to date.';
 }
 
-function scheduleGraphRender() {
-  clearTimeout(graphRenderTimer);
-  graphRenderTimer = setTimeout(renderStatisticsGraph, 80);
+function markStatisticsStale() {
+  el('statisticsStatus').textContent = 'Settings changed. Run statistics to update the graph.';
 }
 
 let nextCarId = 1;
@@ -700,7 +705,7 @@ export function runStatisticsSimulation(parameters, seed = 1) {
     elapsed: 0, arrivalClock: 0, lastFrame: null, diagnostics: freshDiagnostics(), lanes: [],
   });
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
-  runHeadlessSimulation(SIMULATION_DURATION_SECONDS);
+  runHeadlessSimulation(GRAPH_DURATION_SECONDS);
   const result = {
     throughput: state.lanes.map(lane => lane.crossed),
     waitingTime: state.lanes.map(lane => lane.crossed ? lane.totalWait / lane.crossed : 0),
@@ -877,12 +882,20 @@ el('viewToggle').addEventListener('click', () => {
   mobileView.overview = !mobileView.overview;
   updateViewMode();
 });
-el('graphAxis').addEventListener('change', renderStatisticsGraph);
-el('graphMetric').addEventListener('change', renderStatisticsGraph);
+el('graphAxis').addEventListener('change', markStatisticsStale);
+el('graphMetric').addEventListener('change', markStatisticsStale);
+el('runStatisticsBtn').addEventListener('click', () => {
+  const button = el('runStatisticsBtn');
+  button.disabled = true;
+  button.textContent = 'Running…';
+  el('statisticsStatus').textContent = 'Running statistics…';
+  // Let the busy state paint before the synchronous batch simulation starts.
+  requestAnimationFrame(() => setTimeout(renderStatisticsGraph, 0));
+});
 window.addEventListener('resize', render);
 if ('ResizeObserver' in window) {
   const roadResizeObserver = new window.ResizeObserver(render);
   roadResizeObserver.observe(el('road'));
 }
 reset();
-renderStatisticsGraph();
+markStatisticsStale();
