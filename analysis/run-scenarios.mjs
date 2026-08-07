@@ -48,14 +48,19 @@ const results = { meta: { runs: options.runs, duration: options.duration, genera
 
 for (const scenario of scenarios) {
   const settings = { ...RUSH_HOUR, ...scenario.settings };
-  note(`## ${scenario.key} - ${scenario.label}`);
-  const baseline = measure(settings, options);
+  // A scenario may need a longer horizon than the default, and pays for it with runs.
+  const budget = {
+    runs: scenario.runs ?? options.runs,
+    duration: scenario.duration ?? options.duration,
+  };
+  note(`## ${scenario.key} - ${scenario.label}  (${budget.runs} runs x ${budget.duration}s)`);
+  const baseline = measure(settings, budget);
   note(`   baseline: A=${baseline.laneA.toFixed(1)} B=${baseline.laneB.toFixed(1)} `
     + `B/A=${baseline.ratio === null ? 'n/a' : baseline.ratio.toFixed(4)}`);
 
   const sweeps = {};
   for (const hypothesis of HYPOTHESES) {
-    const points = sweep(hypothesis.axis, hypothesis.values, settings, options);
+    const points = sweep(hypothesis.axis, hypothesis.values, settings, budget);
     sweeps[hypothesis.key] = points;
     done++;
     const best = points.filter(p => p.ratio !== null).reduce((m, p) => (p.ratio > m.ratio ? p : m), { ratio: -Infinity });

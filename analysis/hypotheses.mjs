@@ -7,6 +7,24 @@
 
 export const HYPOTHESES = [
   {
+    key: 'saturation',
+    label: 'The advantage only exists once the lane is saturated',
+    axis: 'arrivalRate',
+    values: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20],
+    claim: 'Near 1.00 below capacity, rising to its full size once demand exceeds what '
+      + 'a lane can discharge. Almost tautological, but it sets the boundary of every '
+      + 'other claim here and explains why the quiet scenario looks like a failure.',
+  },
+  {
+    key: 'mix-width',
+    label: 'Driver populations that behave alike coordinate better',
+    axis: 'driverMixWidth',
+    values: [0, 1, 2, 3, 4],
+    claim: 'Width 0 is a population of identical drivers, width 4 spans very cautious to '
+      + 'aggressive. The hypothesis is that a narrow spread makes the method more '
+      + 'effective, because a simultaneous start needs drivers to move together.',
+  },
+  {
     key: 'compliance',
     label: 'Compliance pays back steadily, with no threshold to clear',
     axis: 'stripeCompliance',

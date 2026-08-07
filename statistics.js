@@ -4,7 +4,10 @@ export const GRAPH_RUN_OPTIONS = [3, 5, 10];
 export const GRAPH_DURATION_OPTIONS = [3, 5, 10].map(minutes => minutes * 60);
 
 export const graphAxes = {
-  greenPhase: { label: 'Green light duration', min: 5, max: 30, step: 1, unit: 's' },
+  // Stepped in fives: below about ten seconds a cycle discharges so few cars that
+  // integer quantisation dominates the result, and a one-second step would make the
+  // batch graph forty-one points long for no extra insight.
+  greenPhase: { label: 'Green light duration', min: 10, max: 50, step: 5, unit: 's' },
   stripeCompliance: { label: 'Compliance', min: 0, max: 100, step: 10, unit: '%' },
   stripeLength: { label: 'Striped zone length', min: 10, max: 100, step: 10, unit: 'm' },
   bottomGap: { label: 'Lane B intended distance', min: 4, max: 8, step: .5, unit: 'm' },

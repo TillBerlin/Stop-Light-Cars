@@ -12,12 +12,14 @@ import {
   queuedStopPosition,
   randomBetween,
   restingDistanceForPosition,
+  arrivalRateAt,
+  exponentialInterval,
   shouldEnterQueueMode,
   stopFallsWithinZone,
   safeArrivalSpeed,
 } from './car-physics.js';
 import { carStatusLabel } from './car-status.js';
-import { DRIVER_LEVELS, drawDriverLevel } from './driver-profiles.js';
+import { DRIVER_LEVELS, drawDriverProfile } from './driver-profiles.js';
 import {
   BEHAVIOR,
   CONTROL,
@@ -80,10 +82,13 @@ const settings = {
   clearingMin: 4, clearingMax: 4,
   greenPhase: 20, arrivalRate: 15, speedLimit: 50, topGap: 2, bottomGap: LANE_B_STRIPE_GAP,
   stripeCompliance: 70, stripeLength: 50, simulationSpeed: 1,
+  // Analysis-only settings, with no slider. They are declared here so that batch runs
+  // which set them are fully restored afterwards rather than leaking into later runs.
+  demandProfile: null, driverMixShape: 'uniform',
 };
 const controlDefinitions = [
   { key: 'aggressiveness', label: 'Driver mix', min: 1, max: 5, step: 1, unit: '', range: true, note: 'Level is fixed when each car spawns' },
-  { key: 'greenPhase', label: 'Green phase', min: 5, max: 30, step: 1, unit: 's', note: 'Red phase is green + 3s' },
+  { key: 'greenPhase', label: 'Green phase', min: 10, max: 50, step: 1, unit: 's', note: 'Red phase is green + 3s' },
   { key: 'arrivalRate', label: 'Arrival rate', min: 0, max: 20, step: 1, unit: 'cars/min', note: 'New cars per lane' },
   { key: 'speedLimit', label: 'Speed limit', min: 10, max: 80, step: 1, unit: 'km/h', note: 'Maximum road speed' },
   { key: 'stripeCompliance', label: '3-stripes compliance', min: 0, max: 100, step: 10, unit: '%', note: 'Share of Lane B drivers', className: 'bottom' },
@@ -235,7 +240,7 @@ function markStatisticsStale() {
 let nextCarId = 1;
 let vehicleProfiles = [];
 let createVisibleCars = true;
-const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, arrivalClock: 0, lastFrame: null, lanes: [], diagnostics: null };
+const state = { running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION, elapsed: 0, untilNextArrival: 0, lastFrame: null, lanes: [], diagnostics: null };
 
 export function roadRenderMetrics(roadWidth, isMobile = false, overview = false) {
   if (!Number.isFinite(roadWidth) || roadWidth <= 0) return null;
@@ -273,7 +278,15 @@ function vehicleProfile(index) {
     vehicleProfiles[index] = {
       color: CAR_COLORS[index % CAR_COLORS.length],
       length: randomBetween(CAR_LENGTH_MIN, CAR_LENGTH_MAX),
-      driverLevel: drawDriverLevel(settings.aggressivenessMin, settings.aggressivenessMax),
+      // The driver's whole personality is drawn once, here, and never redrawn. Trait
+      // noise is part of that draw, so a car keeps the same slightly-off-the-curve
+      // character for its entire run.
+      driver: drawDriverProfile(
+        settings.aggressivenessMin,
+        settings.aggressivenessMax,
+        Math.random,
+        { shape: settings.driverMixShape },
+      ),
     };
   }
   return vehicleProfiles[index];
@@ -281,7 +294,7 @@ function vehicleProfile(index) {
 
 function createCar(position, laneIndex, profileIndex, initialSpeed = 0, arrivalTime = 0) {
   const profile = vehicleProfile(profileIndex);
-  const driver = DRIVER_LEVELS[profile.driverLevel - 1];
+  const driver = profile.driver;
   const node = document.createElement('div');
   node.className = 'car';
   node.style.setProperty('--car-color', profile.color);
@@ -300,12 +313,14 @@ function createCar(position, laneIndex, profileIndex, initialSpeed = 0, arrivalT
     acceleration: 0, arrivalTime,
     movementSamples: [{ time: state.elapsed, position }],
     stoppedWithOpenGapSince: null,
-    driverLevel: profile.driverLevel,
+    driverLevel: driver.level,
     jerk: driver.jerk,
     maxAcceleration: driver.maxAccel,
     brakeRate: driver.brakeRate,
     timeHeadway: driver.headway,
-    startup: randomBetween(driver.startup - .15, driver.startup + .15),
+    // No extra jitter here: the spread that used to come from randomising start-up
+    // around a category value now comes from the continuous draw plus trait noise.
+    startup: driver.startup,
     clearing: randomBetween(settings.clearingMin, settings.clearingMax),
     followsThreeStripeRule: laneIndex === 1
       ? followsThreeStripeRule(settings.stripeCompliance)
@@ -340,7 +355,7 @@ function fillInitialLane(laneIndex, gap) {
 function reset() {
   document.querySelectorAll('.car').forEach(node => node.remove());
   vehicleProfiles = [];
-  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.arrivalClock = 0; state.lastFrame = null; state.diagnostics = freshDiagnostics();
+  state.running = false; state.phase = 'red'; state.phaseRemaining = INITIAL_RED_DURATION; state.elapsed = 0; state.untilNextArrival = 0; state.lastFrame = null; state.diagnostics = freshDiagnostics();
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
   updateUI(); render();
 }
@@ -678,7 +693,7 @@ function materializeArrivingCars() {
       !furthest || car.position > furthest.position ? car : furthest
     ), undefined);
     const arrivingProfile = vehicleProfile(pending.profileIndex);
-    const arrivingDriver = DRIVER_LEVELS[arrivingProfile.driverLevel - 1];
+    const arrivingDriver = arrivingProfile.driver;
     const arrivingLength = arrivingProfile.length;
     const gap = leader
       ? entranceGap(leader.position, ROAD_MAX, arrivingLength, leader.length)
@@ -715,7 +730,6 @@ function advanceSimulation(duration) {
   while (remaining > 0) {
     const dt = Math.min(remaining, .05);
     state.elapsed += dt; state.phaseRemaining -= dt;
-    state.arrivalClock += dt;
     if (state.phaseRemaining <= 0) {
       if (state.phase === 'green') beginOrangePhase();
       else if (state.phase === 'orange') beginRedPhase();
@@ -725,10 +739,23 @@ function advanceSimulation(duration) {
       }
     }
     state.lanes.forEach(lane => updateLane(lane, dt));
-    const arrivalInterval = settings.arrivalRate > 0 ? 60 / settings.arrivalRate : Infinity;
-    while (state.arrivalClock >= arrivalInterval) {
-      queueArrivingCars();
-      state.arrivalClock -= arrivalInterval;
+    // Both lanes share one arrival stream, so they always face identical demand and the
+    // comparison between them stays controlled even though arrivals are now random.
+    // Each new interval is drawn at the rate current at that moment, which tracks a
+    // demand profile closely because the rate moves far more slowly than the timestep.
+    const currentRate = arrivalRateAt(state.elapsed, settings.arrivalRate, settings.demandProfile);
+    if (!(currentRate > 0)) {
+      state.untilNextArrival = Infinity;
+    } else {
+      // Recover from a stretch of zero demand, where the wait was set to Infinity.
+      if (!Number.isFinite(state.untilNextArrival)) {
+        state.untilNextArrival = exponentialInterval(currentRate);
+      }
+      state.untilNextArrival -= dt;
+      while (state.untilNextArrival <= 0) {
+        queueArrivingCars();
+        state.untilNextArrival += exponentialInterval(currentRate);
+      }
     }
     materializeArrivingCars();
     remaining -= dt;
@@ -766,7 +793,7 @@ export function runStatisticsSimulation(parameters, seed = 1, duration = GRAPH_D
   nextCarId = 1;
   Object.assign(state, {
     running: false, phase: 'red', phaseRemaining: INITIAL_RED_DURATION,
-    elapsed: 0, arrivalClock: 0, lastFrame: null, diagnostics: freshDiagnostics(), lanes: [],
+    elapsed: 0, untilNextArrival: 0, lastFrame: null, diagnostics: freshDiagnostics(), lanes: [],
   });
   state.lanes = [fillInitialLane(0, settings.topGap), fillInitialLane(1, settings.bottomGap)];
   runHeadlessSimulation(duration);

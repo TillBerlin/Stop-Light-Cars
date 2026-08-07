@@ -36,6 +36,30 @@ export const RUSH_HOUR = Object.freeze({
 export const DEFAULT_RUNS = 20;
 export const DEFAULT_DURATION = 300;
 
+// Most axes are a plain settings key, but two are derived.
+//
+//   aggressiveness    a uniform population at exactly that level, matching the page's
+//                     own aggressiveness axis.
+//   driverMixWidth    how wide a spread of personalities the population contains,
+//                     centred on normal. Width 0 is every driver identical; width 4
+//                     spans very cautious to aggressive. Driver level is continuous
+//                     now, so half-level bounds are meaningful.
+function buildParameters(axisKey, x, scenario) {
+  if (axisKey === 'aggressiveness') {
+    return { ...scenario, aggressiveness: x, aggressivenessMin: x, aggressivenessMax: x };
+  }
+  if (axisKey === 'driverMixWidth') {
+    const centre = 3;
+    return {
+      ...scenario,
+      aggressivenessMin: Math.max(1, centre - x / 2),
+      aggressivenessMax: Math.min(5, centre + x / 2),
+      driverMixShape: 'uniform',
+    };
+  }
+  return { ...scenario, [axisKey]: x };
+}
+
 // Common random numbers: every value of the swept axis sees the same sequence of run
 // seeds, so adjacent points differ because of the parameter rather than because of
 // luck. This mirrors buildStatisticsSeries in statistics.js, but accepts an arbitrary
@@ -47,11 +71,7 @@ export function sweep(axisKey, values, scenario = RUSH_HOUR, options = {}) {
     const throughput = [0, 0];
     const waiting = [0, 0];
     for (let run = 0; run < runs; run++) {
-      // Sweeping aggressiveness means a uniform population at that level, matching
-      // how the page's own aggressiveness axis behaves.
-      const parameters = axisKey === 'aggressiveness'
-        ? { ...scenario, aggressiveness: x, aggressivenessMin: x, aggressivenessMax: x }
-        : { ...scenario, [axisKey]: x };
+      const parameters = buildParameters(axisKey, x, scenario);
       const result = runStatisticsSimulation(parameters, 0x9e3779b9 ^ (run * 7919), duration);
       throughput[0] += result.throughput[0];
       throughput[1] += result.throughput[1];

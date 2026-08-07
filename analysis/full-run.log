@@ -1,0 +1,29 @@
+10 scenarios x 8 hypotheses = 80 sweeps
+20 runs per point, 300s per run
+
+## rush-hour - Rush hour (reference)  (20 runs x 300s)
+   baseline: A=41.4 B=53.3 B/A=1.2862
+   [ 1/80] saturation     peak B/A=1.3123 at 18   (eta 8m)
+   [ 2/80] mix-width      peak B/A=1.2995 at 4   (eta 6m)
+   [ 3/80] compliance     peak B/A=1.3502 at 100   (eta 7m)
+   [ 4/80] zone-length    peak B/A=1.3045 at 90   (eta 7m)
+   [ 5/80] green-phase    peak B/A=1.3137 at 15   (eta 7m)
+   [ 6/80] speed-limit    peak B/A=1.3229 at 90   (eta 7m)
+   [ 7/80] driver-style   peak B/A=1.3408 at 4   (eta 7m)
+   [ 8/80] intended-distance peak B/A=1.3076 at 8   (eta 7m)
+## heavy - Heavy congestion  (20 runs x 300s)
+   baseline: A=41.4 B=53.6 B/A=1.2975
+   [ 9/80] saturation     peak B/A=1.3123 at 18   (eta 7m)
+   [10/80] mix-width      peak B/A=1.2975 at 2   (eta 6m)
+   [11/80] compliance     peak B/A=1.3625 at 100   (eta 6m)
+   [12/80] zone-length    peak B/A=1.3088 at 60   (eta 6m)
+   [13/80] green-phase    peak B/A=1.3360 at 15   (eta 6m)
+   [14/80] speed-limit    peak B/A=1.3209 at 100   (eta 6m)
+   [15/80] driver-style   peak B/A=1.3411 at 4   (eta 6m)
+   [16/80] intended-distance peak B/A=1.3027 at 7   (eta 6m)
+## short-cycle - Short cycle (12s green)  (20 runs x 300s)
+   baseline: A=34.3 B=45.0 B/A=1.3105
+   [17/80] saturation     peak B/A=1.3222 at 18   (eta 6m)
+   [18/80] mix-width      peak B/A=1.3631 at 1   (eta 6m)
+   [19/80] compliance     peak B/A=1.4015 at 100   (eta 6m)
+   [20/80] zone-length    peak B/A=1.3245 at 40   (eta 6m)

@@ -230,6 +230,39 @@ export function followsThreeStripeRule(compliancePercent, random = Math.random) 
   return random() * 100 < compliancePercent;
 }
 
+// Arrivals are a Poisson process rather than a metronome. The arrival rate sets how
+// many cars are *expected* per minute; the gaps between them are exponential, so a
+// stream at 15 cars/min sometimes delivers two cars nose to tail and sometimes leaves a
+// long hole. A fixed interval was not only unrealistic, it could beat against the
+// signal cycle and make throughput look more regular than it is.
+export function exponentialInterval(ratePerMinute, random = Math.random) {
+  if (!(ratePerMinute > 0)) return Infinity;
+  const ratePerSecond = ratePerMinute / 60;
+  // 1 - u avoids log(0) when the generator returns exactly zero.
+  return -Math.log(1 - random()) / ratePerSecond;
+}
+
+// A demand profile lets a scenario vary traffic over time, e.g. building through a
+// rush-hour peak and easing off afterwards. Points are {at: seconds, rate: cars/min}
+// and the rate is interpolated linearly between them, held flat outside the range.
+export function arrivalRateAt(elapsed, baseRate, demandProfile) {
+  if (!Array.isArray(demandProfile) || demandProfile.length === 0) return baseRate;
+  const points = demandProfile;
+  if (elapsed <= points[0].at) return points[0].rate;
+  const last = points[points.length - 1];
+  if (elapsed >= last.at) return last.rate;
+  for (let index = 1; index < points.length; index++) {
+    const previous = points[index - 1], current = points[index];
+    if (elapsed <= current.at) {
+      const span = current.at - previous.at;
+      if (span <= 0) return current.rate;
+      const weight = (elapsed - previous.at) / span;
+      return previous.rate + (current.rate - previous.rate) * weight;
+    }
+  }
+  return last.rate;
+}
+
 export function restingDistanceForPosition(
   position,
   followsStripeRule,

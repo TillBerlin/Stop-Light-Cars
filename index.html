@@ -64,125 +64,6 @@
         <div class="sliders" id="controls"></div>
       </section>
 
-      <section class="story-card idea-card" aria-labelledby="ideaTitle">
-        <p class="eyebrow">The idea</p>
-        <div class="story-heading">
-          <h2 id="ideaTitle">More space can mean a quicker start</h2>
-          <p>Much of the waiting at a green light happens because drivers start one after another. Each driver waits for the car ahead to move, then reacts and starts.</p>
-        </div>
-        <div class="idea-comparison" aria-label="Comparison of normal and larger gaps">
-          <div><span class="step-number">1 → 2 → 3</span><strong>Small gaps</strong><p>Cars leave in a chain, passing the start-up delay down the queue.</p></div>
-          <div class="idea-result"><span class="step-number">1 + 2 + 3</span><strong>Larger gaps</strong><p>Several cars have room to begin moving at the same time.</p></div>
-        </div>
-      </section>
-
-
-      <section class="story-card" aria-labelledby="modelTitle">
-        <p class="eyebrow">How the model works</p>
-        <div class="story-heading">
-          <h2 id="modelTitle">How the cars behave</h2>
-          <p>This is a simple car-following model. Each car watches the light, the car ahead and the space between them.</p>
-        </div>
-        <div class="point-grid model-points">
-          <article><span>01</span><h3>Joining the queue</h3><p>Cars slow down for a red light and stop behind the car ahead. Lane A uses a normal two-metre gap. In the striped zone, compliant Lane B drivers aim for the selected intended distance (4-8 metres, default six).</p></article>
-          <article><span>02</span><h3>Starting on green</h3><p>The first car reacts to the green light. Other drivers start after the car ahead moves or when there is already enough clear space. A larger gap can therefore let several drivers react together.</p></article>
-          <article><span>03</span><h3>Following safely</h3><p>Moving cars adjust their speed to keep a safe distance. They accelerate smoothly, brake as the gap closes and use stronger braking if a collision becomes likely.</p></article>
-          <article><span>04</span><h3>Signals and new cars</h3><p>Drivers stop for red and decide whether it is safe to stop on orange. New cars keep arriving at the chosen rate, and wait off-screen if the road entrance is full.</p></article>
-        </div>
-
-        <div class="model-block">
-          <p class="eyebrow">Key terms</p>
-          <h3 class="model-subhead">The four numbers that describe a driver</h3>
-          <dl class="term-list">
-            <div>
-              <dt>Start-up time <span>seconds</span></dt>
-              <dd>How long a stopped driver takes to get going once it is their turn. The countdown begins when the light is green and the car ahead has started moving, or when there is already enough clear space. The car stays still until it finishes. This is the delay that passes down a queue one car at a time, and the delay the larger gap is meant to avoid.</dd>
-            </div>
-            <div>
-              <dt>Headway <span>seconds</span></dt>
-              <dd>The time gap a moving driver wants to keep to the car ahead — roughly "how many seconds behind". It is a time, not a distance, so the gap grows with speed: at 50 km/h a 1.5-second headway is about 21 metres. It shrinks to nothing at a standstill, where the resting gap takes over instead.</dd>
-            </div>
-            <div>
-              <dt>Jerk <span>m/s³</span></dt>
-              <dd>How fast the acceleration itself is allowed to change — in plain terms, how briskly a driver moves the pedal. Low jerk is a smooth, gradual squeeze; high jerk is a quick jab. It does not change how hard a car can eventually accelerate or brake, only how quickly it gets there, which is what makes a start feel gentle or sharp.</dd>
-            </div>
-            <div>
-              <dt>Acceleration and braking <span>m/s²</span></dt>
-              <dd>The strongest pull-away and the firmest comfortable stop a driver will normally choose. These are everyday limits, not the limits of the car. When a collision looks likely the driver abandons them and brakes as hard as the situation requires.</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div class="model-block">
-          <p class="eyebrow">Driver profiles</p>
-          <h3 class="model-subhead">What aggressiveness actually changes</h3>
-          <p class="model-lede">"Aggressiveness" is not a single dial inside the model. Each level is a bundle of the four values above, moved together. A more aggressive driver starts sooner, follows closer, works the pedals harder and accepts firmer braking. The <b>Driver mix</b> slider sets the lowest and highest level present; every car draws its own level when it appears and keeps that character for its whole run.</p>
-          <div class="profile-table-wrap">
-            <table class="profile-table">
-              <caption class="sr-only">Driver profile values by aggressiveness level</caption>
-              <thead>
-                <tr><th scope="col">Level</th><th scope="col">Start-up<span>s</span></th><th scope="col">Headway<span>s</span></th><th scope="col">Jerk<span>m/s³</span></th><th scope="col">Max accel.<span>m/s²</span></th><th scope="col">Braking<span>m/s²</span></th></tr>
-              </thead>
-              <tbody>
-                <tr><th scope="row"><b>1</b> Very cautious</th><td>2.40</td><td>2.1</td><td>1.0</td><td>1.2</td><td>2.00</td></tr>
-                <tr><th scope="row"><b>2</b> Cautious</th><td>2.10</td><td>1.8</td><td>1.5</td><td>1.6</td><td>2.25</td></tr>
-                <tr class="profile-default"><th scope="row"><b>3</b> Normal</th><td>1.85</td><td>1.5</td><td>2.0</td><td>2.0</td><td>2.50</td></tr>
-                <tr><th scope="row"><b>4</b> Assertive</th><td>1.50</td><td>1.2</td><td>3.0</td><td>2.5</td><td>2.75</td></tr>
-                <tr><th scope="row"><b>5</b> Aggressive</th><td>1.20</td><td>0.9</td><td>4.0</td><td>3.0</td><td>3.00</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="model-footnote">Level 3 is the default population. Each car's start-up time is drawn within 0.15 s of its profile value, so even identical drivers do not start in lockstep. <b>Emergency braking is deliberately not a personality setting:</b> once a collision is predicted, every driver builds brake pressure at the same 10 m/s³ vehicle limit, because that is a property of the car rather than the person.</p>
-        </div>
-
-        <div class="model-block">
-          <p class="eyebrow">Gaps at a standstill</p>
-          <h3 class="model-subhead">Where the idea lives</h3>
-          <p class="model-lede">Headway describes moving traffic and fades to zero at rest, so a separate <b>resting gap</b> governs a stopped queue. Lane A always uses 2 metres. In the striped zone, compliant Lane B drivers instead target the <b>Lane B intended distance</b> (4–8 metres, 6 by default) — the whole point of the experiment. A driver commits to that larger gap while still braking, as soon as it can predict its place in a queue forming on red, and holds it while it creeps and waits. The moment the light turns green the queue is dissolving rather than forming, so even a car still standing reverts to the ordinary 2-metre gap. Outside the striped zone, and for non-compliant drivers, Lane B behaves exactly like Lane A.</p>
-        </div>
-
-        <div class="model-block">
-          <p class="eyebrow">The simulation itself</p>
-          <h3 class="model-subhead">How the numbers are produced</h3>
-          <p class="model-lede">The model advances in <b>50-millisecond steps</b>, recalculating arrivals, the signal, queueing, driver behaviour and car physics on every step. Vehicles are <b>3.8 to 5.2 metres</b> long, drawn when each car is created, so a queue of ten cars is not a fixed length. The batch statistics are not a faster approximation: every point on the graph runs this same timestep with seeded randomness, which is why results are reproducible but a sweep takes a moment to compute.</p>
-        </div>
-      </section>
-
-      <section class="story-card limitations-card" aria-labelledby="limitationsTitle">
-        <p class="eyebrow">Limitations</p>
-        <div class="story-heading">
-          <h2 id="limitationsTitle">What we still need to learn</h2>
-          <p>The simulation shows a possibility, not a prediction. The idea needs safe real-world trials and independent evaluation before it could guide street design.</p>
-        </div>
-        <ul class="limitations-list">
-          <li><strong>Real drivers may behave differently.</strong> A model cannot capture every reaction, mistake or local driving habit.</li>
-          <li><strong>Participation is uncertain.</strong> Independent research should compare different ways to encourage the larger gap. Messages may need to fit the local language and culture, although drivers may also learn from one another once the benefit becomes visible.</li>
-          <li><strong>Not every junction has enough room.</strong> The queue needs sufficient road between this light and the previous junction. Larger gaps could otherwise block side streets, crossings or access points.</li>
-          <li><strong>Turning traffic can disrupt the pattern.</strong> Cars waiting to turn left or right, or stopping inside the junction, may prevent a coordinated start.</li>
-          <li><strong>The model simplifies the street.</strong> It does not represent lane changes, buses, bicycles, pedestrians, emergency vehicles, hills, poor weather or different vehicle performance.</li>
-          <li><strong>Safety must come first.</strong> A simultaneous start depends on good visibility and predictable behaviour. Trials must check for new risks to people crossing and for unexpected braking.</li>
-          <li><strong>Results depend on local conditions.</strong> Traffic volume, signal timing, queue length and the share of compliant drivers may change the benefit or remove it altogether.</li>
-          <li><strong>One light is not the whole journey.</strong> The model ends when a car crosses the stop line. It does not include the next junction or a queue further down the road, which could remove the time saved here or shift congestion somewhere else.</li>
-        </ul>
-      </section>
-
-      <section class="statistics-card" aria-labelledby="statisticsTitle">
-        <div class="statistics-heading"><div><p class="eyebrow">Batch simulation</p><h2 id="statisticsTitle">Compare lane performance</h2></div><p>Choose the number and length of simulations averaged at each point. Statistics run only when requested.</p></div>
-        <div class="statistics-controls" aria-label="Statistics parameters">
-          <p class="graph-kicker">Statistics parameters</p>
-          <div class="sliders" id="statisticsControls"></div>
-        </div>
-        <div class="graph-layout">
-          <div class="graph-main">
-            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="bottomGap">Lane B intended distance</option><option value="arrivalRate">Arrival rate</option><option value="speedLimit">Speed limit</option><option value="aggressiveness">Driver aggressiveness</option></select></label><label>Runs per point<select id="graphRuns"><option>3</option><option>5</option><option>10</option></select></label><label>Run length<select id="graphDuration"><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label></div>
-            <div class="statistics-run"><button id="runStatisticsBtn" class="primary-btn" type="button">Run statistics</button><p id="statisticsStatus" role="status">Choose settings, then run statistics to draw the graph.</p></div>
-            <div class="chart-wrap" id="statisticsChart" aria-live="polite"><div class="chart-placeholder">The graph will appear after you run statistics.</div></div>
-            <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span><span><i class="relative"></i>Relative advantage (B/A)</span></div>
-          </div>
-          <aside class="graph-notes"><span class="graph-kicker">Fixed parameters</span><h3>What stays constant</h3><p>The selected x-axis parameter varies across its full range. All other values come from the statistics sliders above.</p><dl id="fixedParameters"></dl><p class="waiting-note"><b>Waiting time</b> is measured from a car's spawn time until it crosses the stop line.</p></aside>
-        </div>
-      </section>
-
       <section class="story-card findings-card" aria-labelledby="findingsTitle">
         <p class="eyebrow">Findings</p>
         <div class="story-heading">
@@ -248,6 +129,125 @@
           </li>
         </ol>
         <p class="findings-caveat"><b>One caveat above all others.</b> These seven sweeps vary one parameter at a time around a single chosen scenario. The full parameter space is far larger than that, and the parameters interact: an earlier version of this page, built on an all-normal population at lower demand, produced a visibly different picture of how green phases behave. Other combinations will shift these numbers, and some may reverse a trend seen here. Read each finding as "this is what happens around this scenario", not as a general law, and treat the model itself as an argument for a careful real-world trial rather than a substitute for one.</p>
+      </section>
+
+      <section class="story-card idea-card" aria-labelledby="ideaTitle">
+        <p class="eyebrow">The idea</p>
+        <div class="story-heading">
+          <h2 id="ideaTitle">More space can mean a quicker start</h2>
+          <p>Much of the waiting at a green light happens because drivers start one after another. Each driver waits for the car ahead to move, then reacts and starts.</p>
+        </div>
+        <div class="idea-comparison" aria-label="Comparison of normal and larger gaps">
+          <div><span class="step-number">1 → 2 → 3</span><strong>Small gaps</strong><p>Cars leave in a chain, passing the start-up delay down the queue.</p></div>
+          <div class="idea-result"><span class="step-number">1 + 2 + 3</span><strong>Larger gaps</strong><p>Several cars have room to begin moving at the same time.</p></div>
+        </div>
+      </section>
+
+      <section class="statistics-card" aria-labelledby="statisticsTitle">
+        <div class="statistics-heading"><div><p class="eyebrow">Batch simulation</p><h2 id="statisticsTitle">Compare lane performance</h2></div><p>Choose the number and length of simulations averaged at each point. Statistics run only when requested.</p></div>
+        <div class="statistics-controls" aria-label="Statistics parameters">
+          <p class="graph-kicker">Statistics parameters</p>
+          <div class="sliders" id="statisticsControls"></div>
+        </div>
+        <div class="graph-layout">
+          <div class="graph-main">
+            <div class="graph-selectors"><label>Y axis<select id="graphMetric"><option value="throughput">Cars travelled through in total</option><option value="waitingTime">Average waiting time</option></select></label><label>X axis<select id="graphAxis"><option value="greenPhase">Green light duration</option><option value="stripeCompliance">Compliance</option><option value="stripeLength">Striped zone length</option><option value="bottomGap">Lane B intended distance</option><option value="arrivalRate">Arrival rate</option><option value="speedLimit">Speed limit</option><option value="aggressiveness">Driver aggressiveness</option></select></label><label>Runs per point<select id="graphRuns"><option>3</option><option>5</option><option>10</option></select></label><label>Run length<select id="graphDuration"><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label></div>
+            <div class="statistics-run"><button id="runStatisticsBtn" class="primary-btn" type="button">Run statistics</button><p id="statisticsStatus" role="status">Choose settings, then run statistics to draw the graph.</p></div>
+            <div class="chart-wrap" id="statisticsChart" aria-live="polite"><div class="chart-placeholder">The graph will appear after you run statistics.</div></div>
+            <div class="chart-legend"><span><i class="lane-a"></i>Lane A</span><span><i class="lane-b"></i>Lane B</span><span><i class="relative"></i>Relative advantage (B/A)</span></div>
+          </div>
+          <aside class="graph-notes"><span class="graph-kicker">Fixed parameters</span><h3>What stays constant</h3><p>The selected x-axis parameter varies across its full range. All other values come from the statistics sliders above.</p><dl id="fixedParameters"></dl><p class="waiting-note"><b>Waiting time</b> is measured from a car's spawn time until it crosses the stop line.</p></aside>
+        </div>
+      </section>
+
+      <section class="story-card" aria-labelledby="modelTitle">
+        <p class="eyebrow">How the model works</p>
+        <div class="story-heading">
+          <h2 id="modelTitle">How the cars behave</h2>
+          <p>This is a simple car-following model. Each car watches the light, the car ahead and the space between them.</p>
+        </div>
+        <div class="point-grid model-points">
+          <article><span>01</span><h3>Joining the queue</h3><p>Cars slow down for a red light and stop behind the car ahead. Lane A uses a normal two-metre gap. In the striped zone, compliant Lane B drivers aim for the selected intended distance (4-8 metres, default six).</p></article>
+          <article><span>02</span><h3>Starting on green</h3><p>The first car reacts to the green light. Other drivers start after the car ahead moves or when there is already enough clear space. A larger gap can therefore let several drivers react together.</p></article>
+          <article><span>03</span><h3>Following safely</h3><p>Moving cars adjust their speed to keep a safe distance. They accelerate smoothly, brake as the gap closes and use stronger braking if a collision becomes likely.</p></article>
+          <article><span>04</span><h3>Signals and new cars</h3><p>Drivers stop for red and decide whether it is safe to stop on orange. New cars arrive at random intervals averaging the chosen rate, and wait off-screen if the road entrance is full.</p></article>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Key terms</p>
+          <h3 class="model-subhead">The four numbers that describe a driver</h3>
+          <dl class="term-list">
+            <div>
+              <dt>Start-up time <span>seconds</span></dt>
+              <dd>How long a stopped driver takes to get going once it is their turn. The countdown begins when the light is green and the car ahead has started moving, or when there is already enough clear space. The car stays still until it finishes. This is the delay that passes down a queue one car at a time, and the delay the larger gap is meant to avoid.</dd>
+            </div>
+            <div>
+              <dt>Headway <span>seconds</span></dt>
+              <dd>The time gap a moving driver wants to keep to the car ahead — roughly "how many seconds behind". It is a time, not a distance, so the gap grows with speed: at 50 km/h a 1.5-second headway is about 21 metres. It shrinks to nothing at a standstill, where the resting gap takes over instead.</dd>
+            </div>
+            <div>
+              <dt>Jerk <span>m/s³</span></dt>
+              <dd>How fast the acceleration itself is allowed to change — in plain terms, how briskly a driver moves the pedal. Low jerk is a smooth, gradual squeeze; high jerk is a quick jab. It does not change how hard a car can eventually accelerate or brake, only how quickly it gets there, which is what makes a start feel gentle or sharp.</dd>
+            </div>
+            <div>
+              <dt>Acceleration and braking <span>m/s²</span></dt>
+              <dd>The strongest pull-away and the firmest comfortable stop a driver will normally choose. These are everyday limits, not the limits of the car. When a collision looks likely the driver abandons them and brakes as hard as the situation requires.</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Driver profiles</p>
+          <h3 class="model-subhead">What aggressiveness actually changes</h3>
+          <p class="model-lede">"Aggressiveness" is not a single dial inside the model. It is a bundle of the four values above, moved together: a more aggressive driver starts sooner, follows closer, works the pedals harder and accepts firmer braking. Crucially it is a <b>continuous</b> quantity rather than five categories. The five named levels below are <em>anchors</em> on that scale, and a driver can sit anywhere between them. The <b>Driver mix</b> slider sets the range of personalities present; each car draws its own point in that range when it appears and keeps that character for its whole run.</p>
+          <div class="profile-table-wrap">
+            <table class="profile-table">
+              <caption class="sr-only">Driver profile values at the five anchor levels</caption>
+              <thead>
+                <tr><th scope="col">Level</th><th scope="col">Start-up<span>s</span></th><th scope="col">Headway<span>s</span></th><th scope="col">Jerk<span>m/s³</span></th><th scope="col">Max accel.<span>m/s²</span></th><th scope="col">Braking<span>m/s²</span></th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row"><b>1</b> Very cautious</th><td>2.40</td><td>2.1</td><td>1.0</td><td>1.2</td><td>2.00</td></tr>
+                <tr><th scope="row"><b>2</b> Cautious</th><td>2.10</td><td>1.8</td><td>1.5</td><td>1.6</td><td>2.25</td></tr>
+                <tr class="profile-default"><th scope="row"><b>3</b> Normal</th><td>1.85</td><td>1.5</td><td>2.0</td><td>2.0</td><td>2.50</td></tr>
+                <tr><th scope="row"><b>4</b> Assertive</th><td>1.50</td><td>1.2</td><td>3.0</td><td>2.5</td><td>2.75</td></tr>
+                <tr><th scope="row"><b>5</b> Aggressive</th><td>1.20</td><td>0.9</td><td>4.0</td><td>3.0</td><td>3.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="model-footnote">Values between the anchors are interpolated, so a driver two-thirds of the way from cautious to normal gets two-thirds of each difference. On top of that, every trait is given its own small random nudge — about 5% — <b>once, when the car is created</b>. The result is that no two drivers in a queue are numerically identical, even when the mix is set to a single level, while a cautious driver still cannot accidentally out-accelerate an aggressive one. <b>Emergency braking is deliberately not a personality setting:</b> once a collision is predicted, every driver builds brake pressure at the same 10 m/s³ vehicle limit, because that is a property of the car rather than the person.</p>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">Gaps at a standstill</p>
+          <h3 class="model-subhead">Where the idea lives</h3>
+          <p class="model-lede">Headway describes moving traffic and fades to zero at rest, so a separate <b>resting gap</b> governs a stopped queue. Lane A always uses 2 metres. In the striped zone, compliant Lane B drivers instead target the <b>Lane B intended distance</b> (4–8 metres, 6 by default) — the whole point of the experiment. A driver commits to that larger gap while still braking, as soon as it can predict its place in a queue forming on red, and holds it while it creeps and waits. The moment the light turns green the queue is dissolving rather than forming, so even a car still standing reverts to the ordinary 2-metre gap. Outside the striped zone, and for non-compliant drivers, Lane B behaves exactly like Lane A.</p>
+        </div>
+
+        <div class="model-block">
+          <p class="eyebrow">The simulation itself</p>
+          <h3 class="model-subhead">How the numbers are produced</h3>
+          <p class="model-lede">The model advances in <b>50-millisecond steps</b>, recalculating arrivals, the signal, queueing, driver behaviour and car physics on every step. Vehicles are <b>3.8 to 5.2 metres</b> long, drawn when each car is created, so a queue of ten cars is not a fixed length. The batch statistics are not a faster approximation: every point on the graph runs this same timestep with seeded randomness, which is why results are reproducible but a sweep takes a moment to compute.</p>
+          <p class="model-lede model-lede-spaced">New cars arrive as a <b>random process, not a metronome</b>. The arrival rate sets how many cars are <em>expected</em> each minute; the actual gaps between them vary, so a stream at 15 cars per minute sometimes delivers two cars nose to tail and sometimes leaves a long hole. A fixed interval was not only unrealistic, it could fall into step with the signal cycle and make throughput look steadier than it is. Both lanes always draw from the <em>same</em> arrival stream, so they face identical demand and any difference between them comes from the resting-gap rule rather than from luck.</p>
+        </div>
+      </section>
+
+      <section class="story-card limitations-card" aria-labelledby="limitationsTitle">
+        <p class="eyebrow">Limitations</p>
+        <div class="story-heading">
+          <h2 id="limitationsTitle">What we still need to learn</h2>
+          <p>The simulation shows a possibility, not a prediction. The idea needs safe real-world trials and independent evaluation before it could guide street design.</p>
+        </div>
+        <ul class="limitations-list">
+          <li><strong>Real drivers may behave differently.</strong> A model cannot capture every reaction, mistake or local driving habit.</li>
+          <li><strong>Participation is uncertain.</strong> Independent research should compare different ways to encourage the larger gap. Messages may need to fit the local language and culture, although drivers may also learn from one another once the benefit becomes visible.</li>
+          <li><strong>Not every junction has enough room.</strong> The queue needs sufficient road between this light and the previous junction. Larger gaps could otherwise block side streets, crossings or access points.</li>
+          <li><strong>Turning traffic can disrupt the pattern.</strong> Cars waiting to turn left or right, or stopping inside the junction, may prevent a coordinated start.</li>
+          <li><strong>The model simplifies the street.</strong> It does not represent lane changes, buses, bicycles, pedestrians, emergency vehicles, hills, poor weather or different vehicle performance.</li>
+          <li><strong>Safety must come first.</strong> A simultaneous start depends on good visibility and predictable behaviour. Trials must check for new risks to people crossing and for unexpected braking.</li>
+          <li><strong>Results depend on local conditions.</strong> Traffic volume, signal timing, queue length and the share of compliant drivers may change the benefit or remove it altogether.</li>
+          <li><strong>One light is not the whole journey.</strong> The model ends when a car crosses the stop line. It does not include the next junction or a queue further down the road, which could remove the time saved here or shift congestion somewhere else.</li>
+        </ul>
       </section>
     </main>
     <script type="module" src="app.js"></script>
