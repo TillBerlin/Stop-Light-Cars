@@ -1,5 +1,45 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { arrivalRateAt, exponentialInterval } from './car-physics.js';
+
+function seededUniform(seed) {
+  let state = seed;
+  return () => ((state = (1664525 * state + 1013904223) >>> 0) / 2 ** 32);
+}
+
+test('arrivals are a Poisson process whose mean matches the configured rate', () => {
+  const random = seededUniform(2024);
+  const samples = Array.from({ length: 20000 }, () => exponentialInterval(15, random));
+  const mean = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+  // 15 cars per minute means one car every four seconds on average.
+  assert.ok(Math.abs(mean - 4) < .12, `mean interval was ${mean.toFixed(3)}s`);
+  // Exponential, not constant: intervals must genuinely spread either side of the mean.
+  assert.ok(samples.some(value => value < 1), 'no short interval was ever drawn');
+  assert.ok(samples.some(value => value > 12), 'no long interval was ever drawn');
+  assert.ok(samples.every(value => value > 0));
+});
+
+test('a zero arrival rate never produces another car', () => {
+  assert.equal(exponentialInterval(0), Infinity);
+  assert.equal(exponentialInterval(-3), Infinity);
+});
+
+test('demand profiles interpolate between their points and hold flat outside', () => {
+  const profile = [{ at: 0, rate: 4 }, { at: 100, rate: 20 }, { at: 200, rate: 8 }];
+  assert.equal(arrivalRateAt(-50, 15, profile), 4);
+  assert.equal(arrivalRateAt(0, 15, profile), 4);
+  assert.equal(arrivalRateAt(50, 15, profile), 12);
+  assert.equal(arrivalRateAt(100, 15, profile), 20);
+  assert.equal(arrivalRateAt(150, 15, profile), 14);
+  assert.equal(arrivalRateAt(200, 15, profile), 8);
+  assert.equal(arrivalRateAt(9999, 15, profile), 8);
+});
+
+test('without a demand profile the configured rate is used unchanged', () => {
+  assert.equal(arrivalRateAt(123, 15, null), 15);
+  assert.equal(arrivalRateAt(123, 15, []), 15);
+  assert.equal(arrivalRateAt(123, 15, undefined), 15);
+});
 
 import {
   canCloseGapOnRed,

@@ -15,7 +15,8 @@ test('statistics use three two-minute runs and produce both lane values', () => 
     calls.push({ parameters, seed });
     return { throughput: [parameters.greenPhase, parameters.greenPhase + 1], waitingTime: [1, 2] };
   });
-  assert.equal(series.length, 26);
+  // Green phase spans 10-50s in steps of five.
+  assert.equal(series.length, 9);
   assert.deepEqual(series[0].lanes.length, 2);
   assert.ok(series.every(point => point.lanes.every(Number.isFinite)));
   assert.equal(calls.length, series.length * GRAPH_RUNS);
