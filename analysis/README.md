@@ -25,6 +25,35 @@ background rather than being waited on.
 | `scenarios.mjs` | The ten scenarios. |
 | `hypotheses.mjs` | The claims from the page's Findings section, as sweeps. |
 | `run-scenarios.mjs` | Runs every hypothesis against every scenario, writes JSON + markdown. |
+| `make-charts.mjs` | Turns a results file into the inline SVG charts in the Findings section. |
+
+Rebuilding the page's charts after a run:
+
+```bash
+node analysis/make-charts.mjs analysis/results/full.json
+```
+
+Charts draw every scenario as a faint line with the rush-hour reference on top, so a
+reader can see whether a finding holds generally or only around one operating point.
+The placeholders it fills are `<!--CHART:key-->` comments in `index.html`, which means
+the charts can only be regenerated from a clean copy of those placeholders — check the
+Findings section back out before re-running it.
+
+## Two derived axes
+
+Most sweeps set a settings key directly. Two do not:
+
+- `aggressiveness` builds a uniform population at exactly that level, matching the
+  page's own axis.
+- `driverMixWidth` varies how wide a spread of personalities exists, centred on normal.
+  Width 0 is a population of identical drivers and width 4 spans the full range. Driver
+  level is continuous, so half-level bounds are meaningful.
+
+Scenarios may also set `driverMixShape: 'bimodal'`, which places every driver at one
+bound or the other rather than spreading them, and `demandProfile`, a list of
+`{at, rate}` points that ramps traffic over the run. Neither has a slider; both exist
+only for analysis, and both are declared in the engine's defaults so a batch run
+restores them cleanly afterwards.
 
 ## Why the fake DOM exists
 
@@ -48,12 +77,15 @@ because of the parameter rather than because of luck.
 
 ### Throughput is quantised
 
-Each signal cycle discharges a whole number of cars, so the ratio is a ratio of small
-integers: 8/6, 7/5, 6/4. You will see the exact same value like `1.3333` repeatedly, and
-apparent plateaus are often a single integer step. **Differences below roughly 5% are
-not resolvable**, and a "peak" one step above its neighbours usually is not real. This is
-also why short green phases behave strangely — fewer cars per cycle means coarser
-quantisation, which is part of why the green-phase axis now starts at 10s.
+Each signal cycle discharges a whole number of cars, so the ratio tends toward a ratio of
+small integers: 8/6, 7/5, 6/4. **Differences below roughly 5% are not resolvable**, and a
+"peak" one step above its neighbours usually is not real. Fewer cars per cycle means
+coarser quantisation, which is why the green-phase axis starts at 10s.
+
+Poisson arrivals loosened this considerably — demand no longer falls into step with the
+signal, so Lane A throughput varies across seeds instead of landing on the identical
+integer every time. It did not remove the effect, because a cycle still discharges whole
+cars. Averaging over more runs helps; reading a single point does not.
 
 ### The demand ceiling
 

@@ -157,10 +157,21 @@ test('aggressive drivers cross strictly more cars than very cautious drivers wit
 
 test('the visible simulation stops at five minutes and retains crossed counts', () => {
   restartSimulation();
-  const result = runHeadlessSimulation(SIMULATION_DURATION_SECONDS + 60);
+  const result = runHeadlessSimulation(SIMULATION_DURATION_SECONDS);
   assert.equal(result.elapsed, SIMULATION_DURATION_SECONDS);
   assert.equal(result.running, false);
   assert.ok(result.lanes.every(lane => lane.crossed > 0));
+});
+
+test('a batch run may exceed the visible five-minute limit', () => {
+  // The limit exists so the on-screen run ends with readable totals. Batch analysis is
+  // not bound by it: a demand profile that builds and eases over an hour cannot be
+  // observed inside five minutes, and silently truncating it produced a scenario that
+  // measured only its own quiet opening.
+  restartSimulation();
+  const longRun = runHeadlessSimulation(SIMULATION_DURATION_SECONDS + 120);
+  assert.equal(longRun.elapsed, SIMULATION_DURATION_SECONDS + 120);
+  assert.ok(longRun.lanes.every(lane => lane.crossed > 0));
 });
 
 test('restart clears diagnostics and restores the initial vehicle state', () => {

@@ -72,6 +72,8 @@ const DISTANCE_MARKER_SPACING = 10;
 const LANE_B_STRIPE_GAP = STRIPE_SPACING * 3;
 const RED_PHASE_OFFSET = 3;
 export const SIMULATION_DURATION_SECONDS = 5 * 60;
+// Raised temporarily by headless batch runs, which are not bound by the on-screen limit.
+let runLimitSeconds = SIMULATION_DURATION_SECONDS;
 const CAR_COLORS = ['#ee6f59', '#f2b84b', '#57c6a3', '#4b9fd8', '#9b78cf', '#e887b7', '#e58b45', '#55aaa4'];
 
 // Defaults describe a realistic rush-hour street rather than an idealised one:
@@ -726,7 +728,7 @@ function tick(timestamp) {
 }
 
 function advanceSimulation(duration) {
-  let remaining = Math.min(duration, SIMULATION_DURATION_SECONDS - state.elapsed);
+  let remaining = Math.min(duration, runLimitSeconds - state.elapsed);
   while (remaining > 0) {
     const dt = Math.min(remaining, .05);
     state.elapsed += dt; state.phaseRemaining -= dt;
@@ -760,16 +762,25 @@ function advanceSimulation(duration) {
     materializeArrivingCars();
     remaining -= dt;
   }
-  if (state.elapsed >= SIMULATION_DURATION_SECONDS - 1e-9) {
-    state.elapsed = SIMULATION_DURATION_SECONDS;
+  if (state.elapsed >= runLimitSeconds - 1e-9) {
+    state.elapsed = runLimitSeconds;
     state.running = false;
   }
 }
 
 export function runHeadlessSimulation(duration, step = .05) {
-  const endTime = Math.min(duration, SIMULATION_DURATION_SECONDS);
-  while (state.elapsed < endTime - 1e-9) advanceSimulation(Math.min(step, endTime - state.elapsed));
-  return simulationSnapshot();
+  // The five-minute limit belongs to the visible run, which stops on screen so its final
+  // totals stay readable. A batch run may legitimately be far longer -- a demand profile
+  // that builds and eases over an hour cannot be observed inside five minutes -- so the
+  // limit is lifted for the duration actually requested.
+  const previousLimit = runLimitSeconds;
+  runLimitSeconds = Math.max(SIMULATION_DURATION_SECONDS, duration);
+  try {
+    while (state.elapsed < duration - 1e-9) advanceSimulation(Math.min(step, duration - state.elapsed));
+    return simulationSnapshot();
+  } finally {
+    runLimitSeconds = previousLimit;
+  }
 }
 
 function seededRandom(seed) {
